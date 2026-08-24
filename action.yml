@@ -1,0 +1,64 @@
+name: EvalForge quality gate
+description: Enforce evaluator-neutral AI quality policies and emit JSON, JUnit, and SARIF evidence.
+author: EvalForge Contributors
+
+branding:
+  icon: check-circle
+  color: teal
+
+inputs:
+  candidate:
+    description: Path to a candidate EvalForge artifact or flat JSON metric summary.
+    required: true
+  policy:
+    description: Path to an EvalForge gate policy.
+    required: true
+  baseline:
+    description: Optional path to a baseline artifact for delta checks.
+    required: false
+    default: ""
+  python-version:
+    description: Python version used by the action.
+    required: false
+    default: "3.12"
+  json-output:
+    description: JSON gate report path.
+    required: false
+    default: evalforge-report.json
+  junit-output:
+    description: JUnit XML report path.
+    required: false
+    default: evalforge-junit.xml
+  sarif-output:
+    description: SARIF 2.1.0 report path.
+    required: false
+    default: evalforge.sarif
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install EvalForge
+      shell: bash
+      run: python -m pip install "$GITHUB_ACTION_PATH"
+    - name: Enforce evaluation policy
+      shell: bash
+      env:
+        EVALFORGE_CANDIDATE: ${{ inputs.candidate }}
+        EVALFORGE_POLICY: ${{ inputs.policy }}
+        EVALFORGE_BASELINE: ${{ inputs.baseline }}
+        EVALFORGE_JSON: ${{ inputs.json-output }}
+        EVALFORGE_JUNIT: ${{ inputs.junit-output }}
+        EVALFORGE_SARIF: ${{ inputs.sarif-output }}
+      run: |
+        args=("$EVALFORGE_CANDIDATE" --policy "$EVALFORGE_POLICY")
+        if [[ -n "$EVALFORGE_BASELINE" ]]; then
+          args+=(--baseline "$EVALFORGE_BASELINE")
+        fi
+        evalforge gate "${args[@]}" \
+          --json "$EVALFORGE_JSON" \
+          --junit "$EVALFORGE_JUNIT" \
+          --sarif "$EVALFORGE_SARIF"

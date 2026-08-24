@@ -1,21 +1,27 @@
 # EvalForge
 
-**Open-source quality and security evaluation for RAG applications and AI assistants.**
+**Portable evaluation evidence and policy gates for RAG applications and AI assistants.**
 
 [![CI](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0B7285.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
 
-EvalForge turns a golden question set into reproducible experiments. It runs different retrieval, prompt, and model configurations, records test-level evidence, compares quality/performance/cost, and probes common LLM security failures.
+EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
 
-> Status: usable MVP. The deterministic local provider is intended for a zero-key demo and CI smoke tests—not as a substitute for judging production model quality.
+> Status: v0.2 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
 
 ## Why EvalForge?
 
-RAG demos often look good while failing on less visible dimensions: a relevant document is missed, an answer is plausible but unsupported, a citation does not entail the claim, or a prompt injection exposes restricted data. EvalForge evaluates those dimensions together and keeps the result as an auditable experiment.
+AI projects can calculate useful metrics and still lack a shared answer to a maintainer's release question: **what changed, which limits were enforced, and where is the machine-readable evidence?** Evaluation frameworks use different result shapes, while CI platforms understand established formats such as JUnit and SARIF.
+
+EvalForge provides that missing, deliberately narrow interoperability layer. It does not try to replace Ragas, DeepEval, promptfoo, or a team's custom evaluator. A flat JSON metric summary can be wrapped as a versioned artifact, compared with a baseline, evaluated by an explicit policy, and translated into reports that existing developer tooling already understands. The built-in RAG evaluator makes the complete workflow reproducible without a model key or hosted service.
 
 | Capability | Included |
 |---|---|
+| Portable evidence | Versioned, evaluator-neutral JSON artifact and JSON Schemas |
+| Policy gates | Absolute thresholds, baseline deltas, errors and advisory warnings |
+| CI reports | Stable exit codes plus JSON, JUnit XML, and SARIF 2.1.0 |
+| GitHub integration | Reusable composite Action with no hosted EvalForge account |
 | Golden datasets | JSON import API, file upload, CLI, example dataset |
 | Retrieval | BM25, deterministic vector, hybrid; configurable Recall@K |
 | Models | Offline extractive baseline and OpenAI-compatible endpoints |
@@ -27,6 +33,33 @@ RAG demos often look good while failing on less visible dimensions: a relevant d
 | Delivery | pytest, GitHub Actions, Docker Compose, Render blueprint |
 
 ## Quick start
+
+### Quality gate (no server or model key)
+
+```bash
+git clone https://github.com/jsdhwfmax/EvalForge.git
+cd EvalForge
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+evalforge gate examples/candidate_summary.json \
+  --policy examples/quality_policy.json \
+  --baseline examples/baseline_summary.json \
+  --json build/evalforge-report.json \
+  --junit build/evalforge-junit.xml \
+  --sarif build/evalforge.sarif
+```
+
+The committed example passes required checks and reports one advisory answer-quality regression. Gate exit codes are `0` for pass, `1` for a failed/error check, and `2` for invalid input or policy configuration.
+
+The candidate can also be any flat numeric summary:
+
+```json
+{"faithfulness": 0.91, "latency_ms": 420, "cost_usd": 0.003}
+```
+
+See the [portable artifact and policy specification](docs/INTEROPERABILITY.md).
 
 ### Docker (recommended)
 
@@ -49,7 +82,7 @@ The API container idempotently loads the demo dataset and two configurations. Po
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dashboard,dev]"
+pip install -e ".[rag,dashboard,dev]"
 cp .env.example .env
 evalforge seed
 uvicorn evalforge.api:app --reload
@@ -65,9 +98,23 @@ streamlit run dashboard/app.py
 Run both demo configurations from the CLI:
 
 ```bash
-evalforge run baseline_top1 --name "Baseline"
-evalforge run hybrid_top3 --name "Candidate"
+evalforge run baseline_top1 --name "Baseline" --output build/baseline.json
+evalforge run hybrid_top3 --name "Candidate" --output build/candidate.json
 ```
+
+### GitHub Action
+
+```yaml
+- uses: jsdhwfmax/EvalForge@v0.2.0
+  with:
+    candidate: build/candidate.json
+    baseline: build/baseline.json
+    policy: evalforge-policy.json
+```
+
+The Action writes `evalforge-report.json`, `evalforge-junit.xml`, and `evalforge.sarif` by default. Upload them with the standard reporting actions already used by your repository. Pin a full commit SHA where your supply-chain policy requires immutable Actions.
+
+The base `evalforge-ci` distribution installs only the gate dependencies. The built-in RAG API is available through the `rag` extra; the UI uses the `dashboard` extra. This keeps the reusable gate small for downstream CI jobs.
 
 ## How an experiment works
 
@@ -89,6 +136,20 @@ flowchart LR
 ```
 
 Every test result stores the answer, citations, retrieved document IDs, quality scores, latency, token counts, cost, and provider metadata. Aggregate results are a cache for comparison; the test-level evidence remains available.
+
+The gate path is independent of the API, dashboard, database, and model provider:
+
+```mermaid
+flowchart LR
+    A[EvalForge, Ragas, DeepEval, promptfoo, or custom evaluator] --> J[JSON metrics]
+    J --> P[Portable artifact v1]
+    B[Baseline artifact] --> G{Policy gate}
+    P --> G
+    G --> O[Exit code]
+    G --> R[JSON]
+    G --> U[JUnit]
+    G --> S[SARIF]
+```
 
 ## Metrics
 
@@ -203,7 +264,7 @@ make lint
 make test
 ```
 
-Tests cover retrieval ranking, metrics, security grading, persistence, API validation, duplicate imports, and complete multi-configuration experiments. CI runs on Python 3.9 and 3.12 and builds the Docker image.
+Tests cover portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, duplicate imports, and complete multi-configuration experiments. CI runs on Python 3.9 and 3.12 and builds the Docker image.
 
 ## Deployment
 
@@ -214,12 +275,20 @@ Tests cover retrieval ranking, metrics, security grading, persistence, API valid
 
 See [architecture and production notes](docs/ARCHITECTURE.md).
 
+## Ecosystem role
+
+EvalForge's ecosystem value is interoperability and auditability, not a claim that one deterministic score can certify an AI system. Its artifact keeps metric values, units, direction, producer, and source revision portable; its policy makes release decisions reviewable in Git; its reporters reuse CI standards instead of creating another proprietary dashboard requirement.
+
+The project records adoption evidence conservatively—stars, downstream integrations, released versions, issues, and external contributors are never invented. Read the [ecosystem rationale and success measures](docs/ECOSYSTEM.md), [governance](GOVERNANCE.md), and [maintainer responsibilities](MAINTAINERS.md).
+
 ## Roadmap
 
 - Pluggable LLM-as-judge rubrics and calibrated human review
 - Chunking and embedding provider experiments
 - Dataset/version lineage and statistical significance
-- CI quality gates with configurable thresholds
+- Adapters and fixtures for widely used evaluator result formats
+- Signed evaluation provenance and SLSA-compatible attestations
+- GitLab and Jenkins integration examples
 - Multi-turn agent/tool-call evaluation
 - Role-based access control and tenant isolation
 - React UI once workflows stabilize

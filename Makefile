@@ -1,7 +1,9 @@
-.PHONY: install test lint run dashboard demo docker
+.PHONY: install test lint gate-demo package run dashboard demo docker
+
+PYTHON ?= python3
 
 install:
-	python -m pip install -e ".[dashboard,dev]"
+	$(PYTHON) -m pip install -e ".[rag,dashboard,dev]"
 
 test:
 	pytest --cov=evalforge --cov-report=term-missing
@@ -9,6 +11,18 @@ test:
 lint:
 	ruff check .
 	mypy src/evalforge
+
+gate-demo:
+	mkdir -p build
+	$(PYTHON) -m evalforge.cli gate examples/candidate_summary.json \
+		--policy examples/quality_policy.json \
+		--baseline examples/baseline_summary.json \
+		--json build/evalforge-report.json \
+		--junit build/evalforge-junit.xml \
+		--sarif build/evalforge.sarif
+
+package:
+	$(PYTHON) -m build
 
 run:
 	uvicorn evalforge.api:app --reload

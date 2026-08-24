@@ -1,0 +1,21 @@
+name: Feature request
+description: Propose an evidence-backed EvalForge improvement
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Maintainer or user problem
+      description: Describe the workflow that is currently difficult or impossible.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed behavior
+      description: Include example inputs, outputs, or policy where useful.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Compatibility impact
+      description: Note any artifact, policy, metric, API, or CLI behavior that could change.

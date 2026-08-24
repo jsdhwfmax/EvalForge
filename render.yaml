@@ -1,0 +1,30 @@
+databases:
+  - name: evalforge-db
+    databaseName: evalforge
+    user: evalforge
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: evalforge-api
+    runtime: docker
+    plan: starter
+    dockerCommand: sh -c "evalforge seed && uvicorn evalforge.api:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: EVALFORGE_DATABASE_URL
+        fromDatabase:
+          name: evalforge-db
+          property: connectionString
+
+  - type: web
+    name: evalforge-dashboard
+    runtime: docker
+    plan: starter
+    dockerCommand: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=$PORT
+    envVars:
+      - key: EVALFORGE_API_BASE_URL
+        fromService:
+          type: web
+          name: evalforge-api
+          property: hostport

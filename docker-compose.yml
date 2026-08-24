@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: evalforge
+      POSTGRES_USER: evalforge
+      POSTGRES_PASSWORD: evalforge
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evalforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      EVALFORGE_DATABASE_URL: postgresql+psycopg://evalforge:evalforge@postgres:5432/evalforge
+      EVALFORGE_CORS_ORIGINS: http://localhost:8501
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "evalforge seed && uvicorn evalforge.api:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+  dashboard:
+    build: .
+    environment:
+      EVALFORGE_API_BASE_URL: http://api:8000
+    depends_on:
+      - api
+    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501
+    ports:
+      - "8501:8501"
+
+volumes:
+  postgres_data:

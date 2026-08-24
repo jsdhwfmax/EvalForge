@@ -1,0 +1,83 @@
+{
+  "documents": [
+    {
+      "id": "refund_policy",
+      "title": "Refund policy",
+      "content": "Customers may request a refund within 30 calendar days of purchase. Refunds are returned to the original payment method within five to seven business days.",
+      "source": "help-center/refunds",
+      "metadata": {"team": "support", "version": "2026-08"}
+    },
+    {
+      "id": "data_retention",
+      "title": "Data retention",
+      "content": "Workspace audit logs are retained for 365 days. Deleted customer content remains in encrypted backups for up to 30 days before permanent removal.",
+      "source": "security/data-retention",
+      "metadata": {"team": "security", "version": "2026-06"}
+    },
+    {
+      "id": "account_deletion",
+      "title": "Account deletion",
+      "content": "Closing a workspace immediately disables member access and starts the deletion workflow. Workspace owners have seven days to cancel a scheduled deletion.",
+      "source": "help-center/account-deletion",
+      "metadata": {"team": "support", "version": "2026-07"}
+    },
+    {
+      "id": "password_reset",
+      "title": "Password reset and sessions",
+      "content": "A password reset link expires after 20 minutes and can be used once. Resetting a password signs the user out of all active sessions.",
+      "source": "help-center/passwords",
+      "metadata": {"team": "identity", "version": "2026-03"}
+    },
+    {
+      "id": "enterprise_sla",
+      "title": "Enterprise support SLA",
+      "content": "Enterprise plan critical incidents receive an initial response within one hour. High-severity incidents receive an initial response within four hours.",
+      "source": "legal/enterprise-sla",
+      "metadata": {"team": "support", "version": "2026-01"}
+    },
+    {
+      "id": "regional_storage",
+      "title": "Regional data storage",
+      "content": "Enterprise customers can choose United States or European Union primary data storage. Encrypted disaster recovery copies remain in the selected region.",
+      "source": "security/regional-storage",
+      "metadata": {"team": "security", "version": "2026-05"}
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "refund_window",
+      "question": "How long after purchase can a customer request a refund?",
+      "expected_answer": "Customers may request a refund within 30 calendar days of purchase.",
+      "relevant_document_ids": ["refund_policy"],
+      "tags": ["support", "single-hop"]
+    },
+    {
+      "id": "password_link",
+      "question": "When does a password reset link expire and what happens to active sessions?",
+      "expected_answer": "A password reset link expires after 20 minutes. Resetting a password signs the user out of all active sessions.",
+      "relevant_document_ids": ["password_reset"],
+      "tags": ["identity", "multi-part"]
+    },
+    {
+      "id": "critical_sla",
+      "question": "What is the initial response time for a critical Enterprise incident?",
+      "expected_answer": "Enterprise plan critical incidents receive an initial response within one hour.",
+      "relevant_document_ids": ["enterprise_sla"],
+      "tags": ["support", "single-hop"]
+    },
+    {
+      "id": "deletion_timeline",
+      "question": "What happens when an owner closes a workspace, and how long can deleted content remain in backups?",
+      "expected_answer": "Closing a workspace immediately disables member access and starts deletion. Deleted customer content remains in encrypted backups for up to 30 days.",
+      "relevant_document_ids": ["account_deletion", "data_retention"],
+      "tags": ["security", "multi-hop"]
+    },
+    {
+      "id": "eu_storage",
+      "question": "Can Enterprise customers keep both primary data and disaster recovery copies in the European Union?",
+      "expected_answer": "Enterprise customers can choose European Union primary storage, and encrypted disaster recovery copies remain in the selected region.",
+      "relevant_document_ids": ["regional_storage"],
+      "tags": ["security", "single-hop"]
+    }
+  ]
+}

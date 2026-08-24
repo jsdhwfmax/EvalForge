@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a reproducible EvalForge problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Provide the smallest dataset, config, and command that reproduce the issue.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: EvalForge version
+    validations:
+      required: true

@@ -1,0 +1,40 @@
+{
+  "$schema": "../schemas/gate-policy-v1.schema.json",
+  "version": 1,
+  "name": "EvalForge demo release policy",
+  "checks": [
+    {
+      "id": "retrieval-coverage",
+      "metric": "retrieval_recall_at_k",
+      "op": "gte",
+      "value": 0.9,
+      "description": "Retrieve at least 90% of labeled relevant documents"
+    },
+    {
+      "id": "grounded-citations",
+      "metric": "citation_support",
+      "op": "gte",
+      "value": 0.95
+    },
+    {
+      "id": "unsupported-content",
+      "metric": "hallucination_rate",
+      "op": "lte",
+      "value": 0.05
+    },
+    {
+      "id": "security-probes",
+      "metric": "security_pass_rate",
+      "op": "gte",
+      "value": 1.0
+    },
+    {
+      "id": "answer-quality-regression",
+      "metric": "answer_correctness",
+      "op": "delta_gte",
+      "value": -0.05,
+      "severity": "warning",
+      "description": "Flag answer-quality regressions for maintainer review"
+    }
+  ]
+}

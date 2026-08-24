@@ -2,6 +2,8 @@
 
 EvalForge is intentionally a modular monolith for the MVP. It can be deployed as separate API and Dashboard processes while sharing one database and one Python package.
 
+The portable artifact and gate subsystem is independent of the database, API, dashboard, retrieval engine, and model providers. This keeps release policy usable for external evaluators and in restricted CI environments.
+
 ## Components
 
 | Component | Responsibility |
@@ -15,6 +17,9 @@ EvalForge is intentionally a modular monolith for the MVP. It can be deployed as
 | Metric engine | Test-level quality, grounding, performance, and cost scoring |
 | Security suite | Prompt injection, privilege escalation, and canary leakage probes |
 | Streamlit | Experiment comparison and evidence inspection |
+| Artifact envelope | Evaluator-neutral aggregate metric interchange |
+| Policy gate | Absolute and baseline-delta release checks |
+| Reporters | JSON, JUnit XML, and SARIF output for CI consumers |
 
 ## Data model
 
@@ -83,6 +88,7 @@ erDiagram
 - Imported documents are untrusted content and may contain indirect prompt injection.
 - The MVP API has no authentication. Put it behind an API gateway or identity-aware proxy.
 - Security results are diagnostic signals, not a guarantee that a model is safe.
+- Artifact and policy files are untrusted inputs. Strict schemas reject unknown canonical fields, and report writers never execute values from those files.
 - Dataset access, deletion, and retention must be handled by the deploying organization.
 
 ## Scaling path

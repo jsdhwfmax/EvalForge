@@ -4,7 +4,7 @@ Use only claims that remain true for the published repository and deployed envir
 
 ## Resume bullet (English)
 
-> Built and open-sourced EvalForge, a FastAPI/PostgreSQL evaluation platform for RAG applications that benchmarks retrieval recall, answer correctness, citation support, hallucination, latency, token cost, and adversarial security across versioned configurations; shipped with 23 automated tests (87% coverage), Docker Compose, CI, and a Streamlit dashboard.
+> Built and open-sourced EvalForge, an evaluator-neutral evidence and quality-gate layer for AI systems that converts JSON metrics into reviewable baseline policies, JSON, JUnit, and SARIF; also shipped a zero-key RAG reference evaluator with 30 automated tests (87%+ coverage), Docker Compose, CI, and a Streamlit dashboard.
 
 ## Measured follow-up bullet
 
@@ -14,7 +14,7 @@ These numbers describe the committed synthetic demo dataset and deterministic lo
 
 ## 中文项目描述
 
-> 设计并开源 EvalForge——面向 RAG/AI Assistant 的质量与安全评估平台。平台支持版本化检索/模型配置对比，记录召回率、答案正确性、引用支持度、幻觉、延迟、Token 成本与对抗安全结果，并提供 FastAPI、PostgreSQL/pgvector、Streamlit Dashboard、Docker 与 GitHub Actions。
+> 设计并开源 EvalForge——面向 AI 系统的评测证据互操作与质量门禁层，可把任意 JSON 指标转换为可审查的基线策略、JUnit 与 SARIF；同时提供无需模型密钥的 RAG 参考评测器、FastAPI、PostgreSQL/pgvector、Streamlit Dashboard、Docker 与 GitHub Actions。
 
 ## Interview talking points
 
@@ -24,3 +24,4 @@ These numbers describe the committed synthetic demo dataset and deterministic lo
 - Why security probes use a synthetic canary instead of real secrets.
 - How to evolve synchronous experiment execution into a queue-based worker architecture.
 - How deterministic metrics enable CI gates while LLM judges and human review add semantic coverage.
+- Why evaluator-neutral artifacts let maintainers change measurement tools without rewriting release policy.

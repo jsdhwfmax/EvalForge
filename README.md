@@ -7,8 +7,10 @@
 [![CI](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0B7285.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-35%20passed-12B76A.svg)](tests)
-[![Coverage](https://img.shields.io/badge/coverage-87%25-7F56D9.svg)](tests)
+[![Tests](https://img.shields.io/badge/tests-39%20passed-12B76A.svg)](tests)
+[![Coverage](https://img.shields.io/badge/coverage-87.68%25-7F56D9.svg)](tests)
+[![GitHub stars](https://img.shields.io/github/stars/jsdhwfmax/EvalForge?style=flat)](https://github.com/jsdhwfmax/EvalForge/stargazers)
+
 EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
 
 > Status: v0.3 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
@@ -129,7 +131,7 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.2.0
+- uses: jsdhwfmax/EvalForge@v0.2.1
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json
@@ -311,9 +313,11 @@ make lint
 make test
 ```
 
-The 35-test suite covers portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, dataset fingerprints, baseline comparisons, and complete multi-configuration experiments. Current measured line coverage is 87.35%.
+The 39-test suite covers portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, dataset fingerprints, baseline comparisons, and complete multi-configuration experiments. Current measured line coverage is 87.68%.
 
 CI runs on Python 3.9 and 3.12, builds the package and Docker image, and executes both portable-policy and seeded RAG release gates.
+
+Maintainers should follow the [release checklist](docs/RELEASE_CHECKLIST.md) so tags, package metadata, distributions, checksums, and public claims remain consistent.
 
 ## Deployment
 

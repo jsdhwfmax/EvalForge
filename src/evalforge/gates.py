@@ -2,11 +2,12 @@
 
 import json
 import operator
+from collections import Counter
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional
 from xml.etree import ElementTree
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from evalforge.artifacts import EvaluationArtifact
 
@@ -14,7 +15,7 @@ GateOperator = Literal["gte", "lte", "delta_gte", "delta_lte"]
 
 
 class GateCheck(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
     metric: str = Field(min_length=1)
@@ -31,6 +32,14 @@ class GatePolicy(BaseModel):
     version: Literal[1] = 1
     name: str = Field(default="EvalForge quality policy", min_length=1)
     checks: List[GateCheck] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def check_ids_are_unique(self) -> "GatePolicy":
+        counts = Counter(check.id for check in self.checks)
+        duplicates = sorted(check_id for check_id, count in counts.items() if count > 1)
+        if duplicates:
+            raise ValueError("Gate check IDs must be unique: %s" % ", ".join(duplicates))
+        return self
 
 
 class CheckResult(BaseModel):
@@ -126,6 +135,28 @@ def evaluate_gate(
                     _error_result(check, "Baseline metric is missing: %s" % check.metric)
                 )
                 continue
+            if candidate_metric.unit != baseline_metric.unit:
+                results.append(
+                    _error_result(
+                        check,
+                        "Metric units do not match for %s: candidate=%s, baseline=%s"
+                        % (check.metric, candidate_metric.unit, baseline_metric.unit),
+                    )
+                )
+                continue
+            if candidate_metric.direction != baseline_metric.direction:
+                results.append(
+                    _error_result(
+                        check,
+                        "Metric directions do not match for %s: candidate=%s, baseline=%s"
+                        % (
+                            check.metric,
+                            candidate_metric.direction,
+                            baseline_metric.direction,
+                        ),
+                    )
+                )
+                continue
             baseline_value = baseline_metric.value
             observed = actual - baseline_value
 
@@ -180,7 +211,7 @@ def render_terminal(report: GateReport) -> str:
 
 def render_json(report: GateReport) -> str:
     payload = report.model_dump(mode="json", exclude_none=True)
-    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n"
 
 
 def render_junit(report: GateReport) -> str:
@@ -266,7 +297,7 @@ def render_sarif(report: GateReport) -> str:
             }
         ],
     }
-    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n"
 
 
 def write_report(path: Path, content: str) -> None:

@@ -1,12 +1,12 @@
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
 import pytest
 
-TEST_DB = Path(tempfile.gettempdir()) / "evalforge_test.db"
-if TEST_DB.exists():
-    TEST_DB.unlink()
+TEST_DIR = Path(tempfile.mkdtemp(prefix="evalforge-test-"))
+TEST_DB = TEST_DIR / "evalforge_test.db"
 os.environ["EVALFORGE_DATABASE_URL"] = "sqlite:///%s" % TEST_DB
 
 from evalforge.database import Base, engine, init_db  # noqa: E402
@@ -22,8 +22,7 @@ def clean_database():
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
     engine.dispose()
-    if TEST_DB.exists():
-        TEST_DB.unlink()
+    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
 
 @pytest.fixture()

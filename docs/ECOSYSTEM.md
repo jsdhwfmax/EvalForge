@@ -27,7 +27,9 @@ Project importance must be demonstrated, not declared. Maintainers will report o
 - documented integrations with evaluation and CI tools;
 - security reports and time to remediation.
 
-The project currently begins at zero downstream adoption. A new repository should not describe itself as critical infrastructure until those signals exist.
+### Dated adoption snapshot
+
+From its public launch on 2026-08-24 through 2026-08-30, the repository received 41 GitHub stars. That is a verifiable signal of early interest, not proof of production use or broad adoption. As of this snapshot, confirmed downstream integrations, external issues, external pull requests, external contributors, and forks remain at zero. The project will keep these categories separate rather than converting attention into an unsupported infrastructure claim.
 
 ## Twelve-month success criteria
 

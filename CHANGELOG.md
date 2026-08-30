@@ -12,7 +12,23 @@ All notable changes are documented here. The project follows semantic versioning
 - An end-to-end `evalforge check` command that runs the built-in RAG evaluator and emits portable JSON, JUnit, and SARIF evidence.
 - A seeded RAG release gate in GitHub Actions.
 - An engineering case study and resume-ready project narrative.
-- An expanded 35-test suite with 87.35% measured line coverage.
+- An expanded 39-test suite with 87.68% measured line coverage.
+
+## [0.2.1] - 2026-08-30
+
+### Fixed
+
+- Reject non-finite metric values and policy thresholds before they can enter JSON, JUnit, or SARIF evidence.
+- Fail baseline-delta checks when candidate and baseline units or metric directions do not match.
+- Reject duplicate policy check IDs so report identifiers remain unambiguous.
+- Isolate SQLite databases per pytest session so concurrent test runs cannot corrupt each other.
+
+### Changed
+
+- Update maintained GitHub Actions and development dependency ranges after successful Dependabot CI runs; pin Actions to full commit SHAs.
+- Cancel superseded CI runs on the same ref.
+- Build and attach checked Python distributions plus SHA-256 checksums when a GitHub Release is published.
+- Mark the installed Python package as typed for PEP 561-aware consumers.
 
 ## [0.2.0] - 2026-08-24
 

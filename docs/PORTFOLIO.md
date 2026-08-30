@@ -4,7 +4,7 @@ Use only claims that remain true for the published repository and deployed envir
 
 ## Resume bullet (English)
 
-> Built and open-sourced EvalForge, an evaluator-neutral evidence and quality-gate layer for AI systems that converts JSON metrics into baseline-aware policies, JSON, JUnit, and SARIF; also shipped a zero-key RAG reference evaluator with dataset fingerprints, a FastAPI/PostgreSQL API, 35 tests (87.35% coverage), Docker Compose, GitHub Actions, and a Streamlit release dashboard.
+> Built and open-sourced EvalForge, an evaluator-neutral evidence and quality-gate layer for AI systems that converts JSON metrics into baseline-aware policies, JSON, JUnit, and SARIF; also shipped a zero-key RAG reference evaluator with dataset fingerprints, a FastAPI/PostgreSQL API, 39 tests (87.68% coverage), Docker Compose, GitHub Actions, and a Streamlit release dashboard.
 
 ## Measured follow-up bullet
 

@@ -2,7 +2,7 @@
 
 All notable changes are documented here. The project follows semantic versioning while the artifact and policy formats carry independent schema versions.
 
-## [0.3.0] - 2026-08-30
+## [0.3.0] - 2026-08-31
 
 ### Added
 
@@ -12,7 +12,7 @@ All notable changes are documented here. The project follows semantic versioning
 - An end-to-end `evalforge check` command that runs the built-in RAG evaluator and emits portable JSON, JUnit, and SARIF evidence.
 - A seeded RAG release gate in GitHub Actions.
 - An engineering case study and resume-ready project narrative.
-- An expanded 39-test suite with 87.68% measured line coverage.
+- An expanded test suite with an enforced 85% branch-coverage floor.
 
 ## [0.2.1] - 2026-08-30
 

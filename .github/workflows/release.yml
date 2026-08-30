@@ -4,13 +4,14 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   distributions:
     if: startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -19,12 +20,20 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install build twine
-      - run: python -m build
-      - run: python -m twine check dist/*
+      - name: Verify checked-out tag target
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          release_tag_commit=$(git rev-list -n 1 "$RELEASE_TAG")
+          checked_out_commit=$(git rev-parse HEAD)
+          test "$release_tag_commit" = "$checked_out_commit"
+      - run: python -m pip install ".[dev]"
+      - run: make release-check
       - name: Write portable checksums
         working-directory: dist
-        run: sha256sum *.whl *.tar.gz > SHA256SUMS
+        run: |
+          sha256sum *.whl *.tar.gz > SHA256SUMS
+          sha256sum --check SHA256SUMS
       - name: Attach distributions and checksums
         env:
           GH_TOKEN: ${{ github.token }}

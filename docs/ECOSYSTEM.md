@@ -27,9 +27,11 @@ Project importance must be demonstrated, not declared. Maintainers will report o
 - documented integrations with evaluation and CI tools;
 - security reports and time to remediation.
 
-### Dated adoption snapshot
+### Dated adoption snapshots
 
 From its public launch on 2026-08-24 through 2026-08-30, the repository received 41 GitHub stars. That is a verifiable signal of early interest, not proof of production use or broad adoption. As of this snapshot, confirmed downstream integrations, external issues, external pull requests, external contributors, and forks remain at zero. The project will keep these categories separate rather than converting attention into an unsupported infrastructure claim.
+
+On 2026-08-31, the repository reached 48 GitHub stars. Public GitHub data still showed zero forks and zero external contributors, and an exact global code search found no downstream repository using `uses: jsdhwfmax/EvalForge`. These numbers continue to measure early interest rather than adoption; confirmed users will be recorded separately in [`ADOPTERS.md`](../ADOPTERS.md) with consent and a public integration link.
 
 ## Twelve-month success criteria
 

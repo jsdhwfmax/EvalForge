@@ -1,4 +1,5 @@
 import json
+from xml.etree import ElementTree
 
 from test_api import load_demo
 from typer.testing import CliRunner
@@ -36,8 +37,10 @@ def test_check_command_writes_ci_reports(client, tmp_path):
     artifact = json.loads((tmp_path / "evaluation-artifact.json").read_text())
     assert report["passed"] is True
     assert artifact["metadata"]["dataset_fingerprint"]
-    assert (tmp_path / "evalforge-junit.xml").exists()
-    assert (tmp_path / "evalforge.sarif").exists()
+    junit = ElementTree.parse(tmp_path / "evalforge-junit.xml").getroot()
+    sarif = json.loads((tmp_path / "evalforge.sarif").read_text())
+    assert junit.tag == "testsuite"
+    assert sarif["version"] == "2.1.0"
 
 
 def test_gate_command_returns_nonzero_for_regression(client):

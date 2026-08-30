@@ -7,8 +7,6 @@
 [![CI](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0B7285.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-39%20passed-12B76A.svg)](tests)
-[![Coverage](https://img.shields.io/badge/coverage-87.68%25-7F56D9.svg)](tests)
 [![GitHub stars](https://img.shields.io/github/stars/jsdhwfmax/EvalForge?style=flat)](https://github.com/jsdhwfmax/EvalForge/stargazers)
 
 EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
@@ -131,7 +129,7 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.2.1
+- uses: jsdhwfmax/EvalForge@v0.3.0
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json
@@ -139,6 +137,8 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ```
 
 The Action writes `evalforge-report.json`, `evalforge-junit.xml`, and `evalforge.sarif` by default. Upload them with the standard reporting actions already used by your repository. Pin a full commit SHA where your supply-chain policy requires immutable Actions.
+
+Using EvalForge in another public repository? Please open an issue or pull request to add it to [ADOPTERS.md](ADOPTERS.md). Projects are listed only with a maintainer's consent and a public, verifiable integration link.
 
 The base `evalforge-ci` distribution installs only the gate dependencies. The built-in RAG API is available through the `rag` extra; the UI uses the `dashboard` extra. This keeps the reusable gate small for downstream CI jobs.
 

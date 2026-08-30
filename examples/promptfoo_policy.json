@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsdhwfmax/EvalForge/main/schemas/gate-policy-v1.schema.json",
+  "version": 1,
+  "name": "promptfoo release gate",
+  "checks": [
+    {
+      "id": "promptfoo-pass-rate",
+      "metric": "promptfoo_pass_rate",
+      "op": "gte",
+      "value": 0.6,
+      "description": "At least 60% of promptfoo result rows must pass"
+    },
+    {
+      "id": "promptfoo-mean-score",
+      "metric": "promptfoo_mean_score",
+      "op": "gte",
+      "value": 0.6,
+      "description": "Mean promptfoo score must be at least 0.6"
+    },
+    {
+      "id": "promptfoo-latency",
+      "metric": "latency_ms",
+      "op": "lte",
+      "value": 250,
+      "description": "Mean row latency must be at most 250 ms"
+    },
+    {
+      "id": "promptfoo-cost",
+      "metric": "total_cost_usd",
+      "op": "lte",
+      "value": 0.01,
+      "description": "Total reported evaluation cost must be at most $0.01"
+    }
+  ]
+}

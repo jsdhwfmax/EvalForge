@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: If EvalForge supports your research or engineering work, please cite the software.
 title: EvalForge
 type: software
-version: 0.3.0
+version: 0.3.1
 date-released: 2026-08-31
 license: MIT
 repository-code: https://github.com/jsdhwfmax/EvalForge

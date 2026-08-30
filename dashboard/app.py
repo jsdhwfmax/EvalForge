@@ -63,8 +63,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-overview_tab, run_tab, dataset_tab, security_tab = st.tabs(
-    ["Overview", "Run experiment", "Dataset", "Security"]
+overview_tab, run_tab, release_tab, dataset_tab, security_tab = st.tabs(
+    ["Overview", "Run experiment", "Release gate", "Dataset", "Security"]
 )
 
 experiments = api("GET", "/api/v1/experiments") or []
@@ -133,13 +133,22 @@ with overview_tab:
             paper_bgcolor="white",
             legend_title_text="",
         )
-        st.plotly_chart(figure, width="stretch")
+        st.plotly_chart(figure, use_container_width=True)
         st.dataframe(frame, width="stretch", hide_index=True)
 
         selected_name = st.selectbox(
             "Inspect test-level results", [item["name"] for item in experiments]
         )
         selected = next(item for item in experiments if item["name"] == selected_name)
+        fingerprint = selected.get("summary", {}).get("dataset_fingerprint")
+        if fingerprint:
+            st.caption(
+                "Dataset fingerprint: `%s` · Metrics: `%s`"
+                % (
+                    fingerprint,
+                    selected.get("summary", {}).get("metric_version", "unknown"),
+                )
+            )
         detail_rows = []
         questions = {item["id"]: item["question"] for item in test_cases}
         for result in selected.get("results", []):
@@ -218,6 +227,117 @@ with run_tab:
                 st.success("Configuration created.")
                 st.rerun()
 
+with release_tab:
+    st.subheader("Make a release decision")
+    st.caption(
+        "Compare a candidate with its baseline, then enforce explicit quality thresholds. "
+        "The same gate runs from the CLI and GitHub Actions."
+    )
+    if not experiments:
+        st.info("Run an experiment before applying a release gate.")
+    else:
+        experiment_labels = {
+            "%s · %s" % (item["name"], item["id"][:8]): item["id"]
+            for item in experiments
+            if item["status"] == "completed"
+        }
+        if len(experiment_labels) >= 2:
+            labels = list(experiment_labels)
+            compare_left, compare_right = st.columns(2)
+            baseline_label = compare_left.selectbox(
+                "Baseline experiment", labels, index=min(1, len(labels) - 1)
+            )
+            candidate_label = compare_right.selectbox("Candidate experiment", labels, index=0)
+            if st.button("Compare baseline and candidate"):
+                comparison = api(
+                    "GET",
+                    "/api/v1/experiments/compare",
+                    params={
+                        "baseline_id": experiment_labels[baseline_label],
+                        "candidate_id": experiment_labels[candidate_label],
+                    },
+                )
+                if comparison:
+                    st.session_state["comparison_report"] = comparison
+            comparison = st.session_state.get("comparison_report")
+            if comparison:
+                delta_a, delta_b, delta_c = st.columns(3)
+                delta_a.metric("Improvements", comparison["improvements"])
+                delta_b.metric("Regressions", comparison["regressions"])
+                delta_c.metric(
+                    "Comparable dataset",
+                    "Yes" if comparison["dataset_fingerprint_match"] else "No",
+                )
+                comparison_rows = []
+                for _metric, values in comparison["metrics"].items():
+                    comparison_rows.append(
+                        {
+                            "Metric": values["label"],
+                            "Baseline": values["baseline"],
+                            "Candidate": values["candidate"],
+                            "Delta": values["delta"],
+                            "Direction": values["direction"],
+                            "Verdict": values["verdict"],
+                        }
+                    )
+                st.dataframe(pd.DataFrame(comparison_rows), width="stretch", hide_index=True)
+        elif experiment_labels:
+            st.info("Run two configurations to unlock baseline/candidate comparison.")
+
+        if experiment_labels:
+            st.divider()
+            st.markdown("#### Release thresholds")
+            gate_experiment_label = st.selectbox("Experiment to gate", list(experiment_labels))
+            gate_a, gate_b, gate_c = st.columns(3)
+            min_recall = gate_a.number_input("Minimum Recall@K", 0.0, 1.0, 0.8, 0.05)
+            min_correctness = gate_b.number_input("Minimum correctness", 0.0, 1.0, 0.5, 0.05)
+            min_citations = gate_c.number_input("Minimum citation support", 0.0, 1.0, 0.8, 0.05)
+            gate_d, gate_e, gate_f = st.columns(3)
+            max_hallucination = gate_d.number_input(
+                "Maximum hallucination", 0.0, 1.0, 0.1, 0.05
+            )
+            min_security = gate_e.number_input(
+                "Minimum security pass", 0.0, 1.0, 1.0, 0.05
+            )
+            max_latency = gate_f.number_input(
+                "Maximum mean latency (ms)", 0.0, value=5000.0
+            )
+            enforce_cost = st.checkbox("Enforce a total cost ceiling")
+            max_cost = st.number_input(
+                "Maximum total cost (USD)",
+                0.0,
+                value=1.0,
+                step=0.01,
+                disabled=not enforce_cost,
+            )
+            if st.button("Evaluate release gate", type="primary"):
+                gate_result = api(
+                    "POST",
+                    "/api/v1/experiments/%s/gate" % experiment_labels[gate_experiment_label],
+                    json={
+                        "retrieval_recall_at_k": min_recall,
+                        "answer_correctness": min_correctness,
+                        "citation_support": min_citations,
+                        "hallucination_rate": max_hallucination,
+                        "security_pass_rate": min_security,
+                        "latency_ms": max_latency,
+                        "total_cost_usd": max_cost if enforce_cost else None,
+                    },
+                )
+                if gate_result:
+                    st.session_state["gate_result"] = gate_result
+            gate_result = st.session_state.get("gate_result")
+            if gate_result:
+                if gate_result["passed"]:
+                    st.success("PASS · This experiment satisfies every release threshold.")
+                else:
+                    st.error("FAIL · At least one metric blocks this release.")
+                st.dataframe(
+                    pd.DataFrame(gate_result["checks"]), width="stretch", hide_index=True
+                )
+        else:
+            st.info("No completed experiment is available for a release decision.")
+
 with dataset_tab:
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("Documents", len(documents))
@@ -295,7 +415,7 @@ with security_tab:
             color_discrete_sequence=["#12B76A", "#F79009", "#7F56D9"],
         )
         security_chart.update_layout(showlegend=False, plot_bgcolor="white", paper_bgcolor="white")
-        st.plotly_chart(security_chart, width="stretch")
+        st.plotly_chart(security_chart, use_container_width=True)
         st.dataframe(security_frame, width="stretch", hide_index=True)
     else:
         st.info("Run an experiment with the adversarial suite enabled to see security results.")

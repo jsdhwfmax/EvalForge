@@ -17,6 +17,10 @@ The top-3 configuration retrieved every labeled relevant document, including bot
 
 Sub-millisecond local latency and zero cost describe only the offline provider. They must not be used as estimates for a hosted LLM.
 
+## v0.2 release-gate verification
+
+Re-verified on 2026-08-30 against dataset fingerprint `b4e60647fc469bb2`. The Hybrid · top 3 candidate passed all six default release checks: minimum Recall@K, answer correctness, citation support, security pass rate, plus maximum hallucination rate and mean latency. The check emitted both JSON and JUnit reports, matching the command executed in GitHub Actions.
+
 ## Reproduce
 
 ```bash
@@ -24,6 +28,7 @@ rm -f evalforge.db
 evalforge seed
 evalforge run baseline_top1 --name "Measured baseline"
 evalforge run hybrid_top3 --name "Measured candidate"
+evalforge check hybrid_top3 --name "Release candidate" --report-dir artifacts
 ```
 
 Metric definitions and limitations are documented in [METRICS.md](METRICS.md).

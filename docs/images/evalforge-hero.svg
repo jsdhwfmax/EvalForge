@@ -1,0 +1,56 @@
+<svg width="1200" height="340" viewBox="0 0 1200 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="340" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1020"/>
+      <stop offset="0.55" stop-color="#151A38"/>
+      <stop offset="1" stop-color="#102D2B"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="178" y1="94" x2="268" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B8AFB"/>
+      <stop offset="1" stop-color="#32D583"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="340" rx="24" fill="url(#bg)"/>
+  <circle cx="1050" cy="45" r="180" fill="#12B76A" fill-opacity="0.08" filter="url(#glow)"/>
+  <circle cx="325" cy="300" r="170" fill="#7F56D9" fill-opacity="0.10" filter="url(#glow)"/>
+  <g opacity="0.10" stroke="#D0D5DD">
+    <path d="M0 70H1200M0 140H1200M0 210H1200M0 280H1200"/>
+    <path d="M100 0V340M200 0V340M300 0V340M400 0V340M500 0V340M600 0V340M700 0V340M800 0V340M900 0V340M1000 0V340M1100 0V340"/>
+  </g>
+  <g transform="translate(74 82)">
+    <rect width="84" height="84" rx="22" fill="url(#accent)"/>
+    <path d="M22 25H62L57 38H48V51H61V61H23V51H36V38H27L22 25Z" fill="#0B1020"/>
+    <circle cx="64" cy="19" r="5" fill="#ECFDF3"/>
+  </g>
+  <text x="184" y="126" fill="#F9FAFB" font-family="Inter, ui-sans-serif, system-ui" font-size="52" font-weight="750" letter-spacing="-1.5">EvalForge</text>
+  <text x="184" y="164" fill="#A6F4C5" font-family="Inter, ui-sans-serif, system-ui" font-size="20" font-weight="600">RAG quality, measured before release.</text>
+  <text x="76" y="226" fill="#D0D5DD" font-family="Inter, ui-sans-serif, system-ui" font-size="18">Compare retrieval, grounding, security, latency and cost.</text>
+  <g transform="translate(76 258)" font-family="Inter, ui-sans-serif, system-ui" font-size="13" font-weight="600">
+    <rect width="132" height="34" rx="17" fill="#7F56D9" fill-opacity="0.24" stroke="#9B8AFB" stroke-opacity="0.55"/>
+    <text x="18" y="22" fill="#E9D7FE">REPRODUCIBLE</text>
+    <rect x="144" width="112" height="34" rx="17" fill="#12B76A" fill-opacity="0.20" stroke="#32D583" stroke-opacity="0.55"/>
+    <text x="164" y="22" fill="#D1FADF">CI-GATED</text>
+    <rect x="268" width="128" height="34" rx="17" fill="#2E90FA" fill-opacity="0.18" stroke="#53B1FD" stroke-opacity="0.55"/>
+    <text x="287" y="22" fill="#D1E9FF">OPEN SOURCE</text>
+  </g>
+  <g transform="translate(742 52)">
+    <rect width="390" height="236" rx="18" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.14"/>
+    <text x="24" y="36" fill="#F2F4F7" font-family="Inter, ui-sans-serif, system-ui" font-size="14" font-weight="700">RELEASE GATE</text>
+    <rect x="292" y="17" width="72" height="28" rx="14" fill="#12B76A" fill-opacity="0.24"/>
+    <circle cx="311" cy="31" r="5" fill="#32D583"/>
+    <text x="323" y="35" fill="#A6F4C5" font-family="Inter, ui-sans-serif, system-ui" font-size="12" font-weight="700">PASS</text>
+    <g font-family="Inter, ui-sans-serif, system-ui" font-size="13">
+      <text x="24" y="81" fill="#D0D5DD">Recall@K</text><text x="335" y="81" fill="#A6F4C5" text-anchor="end">100%</text>
+      <rect x="118" y="69" width="190" height="10" rx="5" fill="#FFFFFF" fill-opacity="0.10"/><rect x="118" y="69" width="190" height="10" rx="5" fill="#32D583"/>
+      <text x="24" y="119" fill="#D0D5DD">Citations</text><text x="335" y="119" fill="#A6F4C5" text-anchor="end">100%</text>
+      <rect x="118" y="107" width="190" height="10" rx="5" fill="#FFFFFF" fill-opacity="0.10"/><rect x="118" y="107" width="190" height="10" rx="5" fill="#32D583"/>
+      <text x="24" y="157" fill="#D0D5DD">Security</text><text x="335" y="157" fill="#A6F4C5" text-anchor="end">4 / 4</text>
+      <rect x="118" y="145" width="190" height="10" rx="5" fill="#FFFFFF" fill-opacity="0.10"/><rect x="118" y="145" width="190" height="10" rx="5" fill="#32D583"/>
+    </g>
+    <path d="M24 184H366" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="24" y="213" fill="#98A2B3" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">quality-gate.xml  •  evaluation.json</text>
+  </g>
+</svg>

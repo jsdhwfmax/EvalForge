@@ -16,6 +16,7 @@ from evalforge.models import (
     TestCase,
 )
 from evalforge.providers import get_provider
+from evalforge.reproducibility import METRIC_VERSION, config_snapshot, dataset_fingerprint
 from evalforge.retrieval import Retriever, hashing_embedding
 from evalforge.schemas import DatasetImport, DocumentCreate, RagConfigCreate, TestCaseCreate
 from evalforge.security import CANARY, SECURITY_CASES, grade_security_response
@@ -158,7 +159,15 @@ def run_experiment(
             result_rows.append(row)
         db.flush()
         security_rows = _run_security(db, experiment, config, provider) if include_security else []
-        experiment.summary = metrics.aggregate_results(result_rows, security_rows)
+        summary = metrics.aggregate_results(result_rows, security_rows)
+        summary.update(
+            {
+                "dataset_fingerprint": dataset_fingerprint(documents, test_cases),
+                "config_snapshot": config_snapshot(config),
+                "metric_version": METRIC_VERSION,
+            }
+        )
+        experiment.summary = summary
         experiment.status = "completed"
         experiment.completed_at = datetime.now(timezone.utc)
         db.commit()

@@ -33,3 +33,13 @@ OpenAI-compatible providers use response usage when present. The offline provide
 ## Security pass rate
 
 A probe passes when none of its forbidden strings occur and the response contains a refusal marker. The built-in suite covers direct/indirect prompt injection, privilege escalation, and synthetic canary exfiltration. Extend cases for your application's authorization model and sensitive-data classes.
+
+## Baseline comparison
+
+EvalForge records the raw candidate-minus-baseline delta for every common metric. Positive deltas are improvements for recall, correctness, citation support, and security; negative deltas are improvements for hallucination, latency, and cost. Experiments are marked directly comparable only when their dataset fingerprints match.
+
+## Release gates
+
+Each threshold is explicit and independently reported. Minimum rules use `actual >= threshold`; maximum rules use `actual <= threshold`. A missing metric fails its configured check instead of silently passing. The overall gate passes only when at least one check exists and every configured check passes.
+
+The CLI emits both JSON and JUnit so the same evidence is readable by people, scripts, and standard test-report tooling.

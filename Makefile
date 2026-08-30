@@ -20,6 +20,7 @@ demo:
 	evalforge seed
 	evalforge run baseline_top1 --name "Baseline"
 	evalforge run hybrid_top3 --name "Candidate"
+	evalforge check hybrid_top3 --name "Release candidate" --report-dir artifacts
 
 docker:
 	docker compose up --build

@@ -52,6 +52,9 @@ def test_full_experiment_comparison(client):
         assert len(experiment["security_results"]) == 4
         assert experiment["summary"]["security_pass_rate"] == 1.0
         assert experiment["summary"]["test_cases"] == 5
+        assert len(experiment["summary"]["dataset_fingerprint"]) == 16
+        assert experiment["summary"]["metric_version"] == "deterministic-v1"
+        assert experiment["summary"]["config_snapshot"]["id"] in {"baseline", "candidate"}
     assert (
         experiments[1]["summary"]["retrieval_recall_at_k"]
         >= experiments[0]["summary"]["retrieval_recall_at_k"]
@@ -62,6 +65,24 @@ def test_full_experiment_comparison(client):
     assert len(listed.json()) == 2
     detail = client.get("/api/v1/experiments/%s" % experiments[0]["id"])
     assert detail.status_code == 200
+
+    comparison = client.get(
+        "/api/v1/experiments/compare",
+        params={"baseline_id": experiments[0]["id"], "candidate_id": experiments[1]["id"]},
+    )
+    assert comparison.status_code == 200
+    assert comparison.json()["dataset_fingerprint_match"] is True
+    assert comparison.json()["metrics"]["retrieval_recall_at_k"]["verdict"] == "improved"
+
+    default_gate = client.post("/api/v1/experiments/%s/gate" % experiments[1]["id"], json={})
+    assert default_gate.status_code == 200
+    assert default_gate.json()["passed"] is True
+    strict_gate = client.post(
+        "/api/v1/experiments/%s/gate" % experiments[1]["id"],
+        json={"answer_correctness": 0.99},
+    )
+    assert strict_gate.status_code == 200
+    assert strict_gate.json()["passed"] is False
 
 
 def test_create_resources_and_conflicts(client):
@@ -112,6 +133,12 @@ def test_api_validation_and_missing_resources(client):
         "/api/v1/datasets/upload", files={"file": ("data.json", b"not-json", "application/json")}
     )
     assert invalid_json.status_code == 422
+    missing_compare = client.get(
+        "/api/v1/experiments/compare",
+        params={"baseline_id": "missing-a", "candidate_id": "missing-b"},
+    )
+    assert missing_compare.status_code == 404
+    assert client.post("/api/v1/experiments/missing/gate", json={}).status_code == 404
 
 
 def test_missing_config_after_tests_exist(client):

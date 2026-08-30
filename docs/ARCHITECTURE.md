@@ -14,6 +14,7 @@ EvalForge is intentionally a modular monolith for the MVP. It can be deployed as
 | Model provider | Deterministic local extraction or OpenAI-compatible Chat Completions |
 | Metric engine | Test-level quality, grounding, performance, and cost scoring |
 | Security suite | Prompt injection, privilege escalation, and canary leakage probes |
+| Release-gate engine | Baseline/candidate deltas, thresholds, JSON and JUnit evidence |
 | Streamlit | Experiment comparison and evidence inspection |
 
 ## Data model
@@ -74,8 +75,10 @@ erDiagram
 3. A provider produces an answer plus citation IDs and usage.
 4. Deterministic metrics score the answer against its expected answer and retrieved context.
 5. The adversarial suite runs isolated synthetic probes with a canary document.
-6. Test-level records are committed, followed by an aggregate summary.
-7. The Dashboard reads the API and never connects directly to the database.
+6. Test-level records are committed with a dataset fingerprint, config snapshot, and metric version.
+7. The comparison engine verifies fingerprints and classifies each candidate delta as improved, regressed, or unchanged.
+8. The release gate evaluates configured thresholds and can emit JSON/JUnit reports with a failing process exit code.
+9. The Dashboard reads the API and never connects directly to the database.
 
 ## Trust boundaries
 

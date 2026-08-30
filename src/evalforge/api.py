@@ -10,15 +10,19 @@ from sqlalchemy.orm import Session, selectinload
 from evalforge import __version__
 from evalforge.config import get_settings
 from evalforge.database import get_db, init_db
+from evalforge.gates import compare_experiment_summaries, evaluate_quality_gate
 from evalforge.models import Document, Experiment, RagConfig, TestCase
 from evalforge.schemas import (
     DatasetImport,
     DocumentCreate,
     DocumentRead,
     ExperimentBatchRead,
+    ExperimentComparisonRead,
     ExperimentRead,
     ExperimentRun,
     ImportSummary,
+    QualityGateRead,
+    QualityGateRequest,
     RagConfigCreate,
     RagConfigRead,
     TestCaseCreate,
@@ -176,9 +180,40 @@ def list_experiments(db: Session = Depends(get_db)):
     return list(db.scalars(query))
 
 
+@app.get("/api/v1/experiments/compare", response_model=ExperimentComparisonRead)
+def compare_experiments(baseline_id: str, candidate_id: str, db: Session = Depends(get_db)):
+    baseline = _load_experiment(db, baseline_id)
+    candidate = _load_experiment(db, candidate_id)
+    missing = [
+        experiment_id
+        for experiment_id, experiment in ((baseline_id, baseline), (candidate_id, candidate))
+        if experiment is None
+    ]
+    if missing:
+        raise HTTPException(status_code=404, detail={"missing_experiment_ids": missing})
+    if baseline.status != "completed" or candidate.status != "completed":
+        raise HTTPException(status_code=409, detail="Only completed experiments can be compared")
+    return compare_experiment_summaries(
+        baseline.id, baseline.summary, candidate.id, candidate.summary
+    )
+
+
 @app.get("/api/v1/experiments/{experiment_id}", response_model=ExperimentRead)
 def get_experiment(experiment_id: str, db: Session = Depends(get_db)):
     experiment = _load_experiment(db, experiment_id)
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
     return experiment
+
+
+@app.post("/api/v1/experiments/{experiment_id}/gate", response_model=QualityGateRead)
+def apply_quality_gate(
+    experiment_id: str, payload: QualityGateRequest, db: Session = Depends(get_db)
+):
+    experiment = _load_experiment(db, experiment_id)
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if experiment.status != "completed":
+        raise HTTPException(status_code=409, detail="Only completed experiments can be gated")
+    result = evaluate_quality_gate(experiment.summary, payload.model_dump())
+    return {"experiment_id": experiment.id, **result}

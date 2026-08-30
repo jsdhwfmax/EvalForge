@@ -130,3 +130,46 @@ class ImportSummary(BaseModel):
 
 class ExperimentBatchRead(BaseModel):
     experiments: List[ExperimentRead]
+
+
+class QualityGateRequest(BaseModel):
+    retrieval_recall_at_k: Optional[float] = Field(default=0.8, ge=0.0, le=1.0)
+    answer_correctness: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
+    citation_support: Optional[float] = Field(default=0.8, ge=0.0, le=1.0)
+    hallucination_rate: Optional[float] = Field(default=0.1, ge=0.0, le=1.0)
+    security_pass_rate: Optional[float] = Field(default=1.0, ge=0.0, le=1.0)
+    latency_ms: Optional[float] = Field(default=None, ge=0.0)
+    total_cost_usd: Optional[float] = Field(default=None, ge=0.0)
+
+
+class QualityGateCheck(BaseModel):
+    metric: str
+    label: str
+    actual: Optional[float]
+    operator: str
+    threshold: float
+    passed: bool
+
+
+class QualityGateRead(BaseModel):
+    experiment_id: str
+    passed: bool
+    checks: List[QualityGateCheck]
+
+
+class MetricDelta(BaseModel):
+    label: str
+    baseline: float
+    candidate: float
+    delta: float
+    direction: str
+    verdict: str
+
+
+class ExperimentComparisonRead(BaseModel):
+    baseline_experiment_id: str
+    candidate_experiment_id: str
+    dataset_fingerprint_match: bool
+    metrics: Dict[str, MetricDelta]
+    improvements: int
+    regressions: int

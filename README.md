@@ -1,18 +1,32 @@
 # EvalForge
 
+![EvalForge — RAG quality, measured before release](docs/images/evalforge-hero.svg)
+
 **Open-source quality and security evaluation for RAG applications and AI assistants.**
 
 [![CI](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0B7285.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
+[![Tests](https://img.shields.io/badge/tests-29%20passed-12B76A.svg)](tests)
+[![Coverage](https://img.shields.io/badge/coverage-89%25-7F56D9.svg)](tests)
 
-EvalForge turns a golden question set into reproducible experiments. It runs different retrieval, prompt, and model configurations, records test-level evidence, compares quality/performance/cost, and probes common LLM security failures.
+EvalForge turns a golden question set into an executable release decision. It runs retrieval, prompt, and model configurations; fingerprints the dataset; records test-level evidence; compares a candidate with its baseline; and blocks regressions with JSON/JUnit quality-gate reports.
 
-> Status: usable MVP. The deterministic local provider is intended for a zero-key demo and CI smoke tests—not as a substitute for judging production model quality.
+> Portfolio release v0.2. The deterministic local provider enables a zero-key demo and reproducible CI; it is not presented as a substitute for production semantic judging.
 
 ## Why EvalForge?
 
 RAG demos often look good while failing on less visible dimensions: a relevant document is missed, an answer is plausible but unsupported, a citation does not entail the claim, or a prompt injection exposes restricted data. EvalForge evaluates those dimensions together and keeps the result as an auditable experiment.
+
+### The 30-second story
+
+1. Import documents plus golden questions with labeled relevant sources.
+2. Run a baseline and candidate across retrieval/model configurations.
+3. Compare multi-dimensional deltas on the same dataset fingerprint.
+4. Apply explicit quality, security, latency, and cost thresholds.
+5. Emit `evaluation.json` and `quality-gate.xml`; return a non-zero exit code on regression.
+
+Read the engineering narrative in the [case study](docs/CASE_STUDY.md) or use the [resume-ready project notes](docs/PORTFOLIO.md).
 
 | Capability | Included |
 |---|---|
@@ -22,6 +36,9 @@ RAG demos often look good while failing on less visible dimensions: a relevant d
 | Quality | Token-F1 correctness, citation support, hallucination proxy |
 | Operations | Latency, input/output tokens, configured USD cost |
 | Security | Prompt injection, privilege escalation, canary exfiltration |
+| Release decisions | Baseline/candidate deltas and configurable pass/fail thresholds |
+| Reproducibility | Dataset fingerprint, config snapshot, versioned metric implementation |
+| CI evidence | JSON and JUnit reports with a regression-blocking CLI exit code |
 | Persistence | SQLite locally; PostgreSQL + native pgvector in Docker |
 | Interfaces | FastAPI/OpenAPI, CLI, Streamlit comparison dashboard |
 | Delivery | pytest, GitHub Actions, Docker Compose, Render blueprint |
@@ -69,6 +86,14 @@ evalforge run baseline_top1 --name "Baseline"
 evalforge run hybrid_top3 --name "Candidate"
 ```
 
+Run the same release gate used by GitHub Actions:
+
+```bash
+evalforge check hybrid_top3 --name "PR candidate" --report-dir artifacts
+```
+
+The command prints the measured summary, writes `artifacts/evaluation.json` and `artifacts/quality-gate.xml`, and exits non-zero if any threshold fails.
+
 ## How an experiment works
 
 ```mermaid
@@ -83,12 +108,17 @@ flowchart LR
     Q --> E
     E --> DB[(PostgreSQL + pgvector)]
     S[Adversarial suite] --> M
+    E --> G{Release gate}
+    G --> J[JSON + JUnit reports]
+    J --> CI[GitHub Actions]
     E --> API[FastAPI]
     DB --> API
     API --> UI[Streamlit dashboard]
 ```
 
 Every test result stores the answer, citations, retrieved document IDs, quality scores, latency, token counts, cost, and provider metadata. Aggregate results are a cache for comparison; the test-level evidence remains available.
+
+Each experiment summary also stores a stable 16-character dataset fingerprint, a complete configuration snapshot, and a metric-version identifier. EvalForge flags experiments with different dataset fingerprints as non-comparable.
 
 ## Metrics
 
@@ -103,6 +133,8 @@ Every test result stores the answer, citations, retrieved document IDs, quality 
 | Security pass rate | Attacks with no forbidden leakage and a detected refusal | Higher |
 
 These deterministic metrics are deliberately transparent and stable enough for CI regression gates. Production teams should add an LLM-as-judge or human review layer for semantic correctness and entailment. See [metric definitions](docs/METRICS.md).
+
+Default release thresholds require Recall@K ≥ 0.80, correctness ≥ 0.50, citation support ≥ 0.80, hallucination ≤ 0.10, and a 100% security pass rate. Every value is configurable through the API, Dashboard, or CLI.
 
 ### Measured demo result
 
@@ -143,6 +175,22 @@ curl -X POST http://localhost:8000/api/v1/datasets/upload \
 ```
 
 The full contract is always available at `/docs` and `/openapi.json`.
+
+Compare two completed experiments:
+
+```bash
+curl --get http://localhost:8000/api/v1/experiments/compare \
+  --data-urlencode "baseline_id=$BASELINE_ID" \
+  --data-urlencode "candidate_id=$CANDIDATE_ID"
+```
+
+Apply a release gate:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/experiments/$EXPERIMENT_ID/gate" \
+  -H 'Content-Type: application/json' \
+  -d '{"retrieval_recall_at_k":0.9,"answer_correctness":0.6,"hallucination_rate":0.1}'
+```
 
 ## Use a real model
 
@@ -203,7 +251,9 @@ make lint
 make test
 ```
 
-Tests cover retrieval ranking, metrics, security grading, persistence, API validation, duplicate imports, and complete multi-configuration experiments. CI runs on Python 3.9 and 3.12 and builds the Docker image.
+The 29-test suite covers retrieval ranking, metrics, security grading, persistence, API validation, duplicate imports, complete multi-configuration experiments, reproducibility fingerprints, comparison directionality, quality-gate pass/fail behavior, and JSON/JUnit reports. Current measured coverage is 89%.
+
+CI runs on Python 3.9 and 3.12, builds the Docker image, and executes a real seeded RAG release gate—not only unit tests.
 
 ## Deployment
 
@@ -219,7 +269,7 @@ See [architecture and production notes](docs/ARCHITECTURE.md).
 - Pluggable LLM-as-judge rubrics and calibrated human review
 - Chunking and embedding provider experiments
 - Dataset/version lineage and statistical significance
-- CI quality gates with configurable thresholds
+- Durable workers, progress streaming, and experiment cancellation
 - Multi-turn agent/tool-call evaluation
 - Role-based access control and tenant isolation
 - React UI once workflows stabilize

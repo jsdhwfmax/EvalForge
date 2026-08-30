@@ -11,4 +11,6 @@ dist/
 build/
 evalforge.db
 htmlcov/
+artifacts/
+ci_evalforge.db
 .DS_Store

@@ -24,6 +24,8 @@ METRIC_METADATA: Dict[str, Tuple[str, str]] = {
     "test_cases": ("count", "neutral"),
     "security_cases": ("count", "neutral"),
     "security_pass_rate": ("ratio", "higher"),
+    "promptfoo_pass_rate": ("ratio", "higher"),
+    "promptfoo_mean_score": ("score", "higher"),
 }
 
 

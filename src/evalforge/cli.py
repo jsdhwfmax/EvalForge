@@ -6,6 +6,7 @@ from typing import Optional
 
 import typer
 
+from evalforge.adapters.promptfoo import load_promptfoo_export
 from evalforge.artifacts import artifact_from_summary, load_artifact, write_artifact
 from evalforge.gates import (
     GateCheck,
@@ -22,6 +23,28 @@ from evalforge.gates import (
 )
 
 app = typer.Typer(help="EvalForge command-line tools")
+import_app = typer.Typer(help="Convert an explicit evaluator format to EvalForge evidence")
+app.add_typer(import_app, name="import")
+
+
+@import_app.command("promptfoo")
+def import_promptfoo(
+    source: Path,
+    output: Path = typer.Option(..., "--output", "-o"),
+    source_revision: Optional[str] = typer.Option(
+        None,
+        "--source-revision",
+        help="Candidate source revision evaluated by promptfoo",
+    ),
+) -> None:
+    """Convert a promptfoo JSON OutputFile (results schema v3)."""
+
+    try:
+        artifact = load_promptfoo_export(source, source_revision=source_revision)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    write_artifact(output, artifact)
+    typer.echo("Wrote promptfoo evaluation artifact to %s" % output)
 
 
 def _require_rag_dependencies() -> None:

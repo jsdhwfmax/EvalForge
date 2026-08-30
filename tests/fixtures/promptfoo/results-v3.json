@@ -1,0 +1,75 @@
+{
+  "evalId": "eval-synthetic-001",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-08-31T08:00:00.000Z",
+    "results": [
+      {
+        "promptIdx": 0,
+        "testIdx": 0,
+        "testCase": {},
+        "promptId": "prompt-1",
+        "provider": {"id": "example:provider", "label": "Synthetic provider"},
+        "prompt": {"raw": "Synthetic prompt", "label": "Synthetic prompt"},
+        "vars": {},
+        "failureReason": 0,
+        "success": true,
+        "score": 0.9,
+        "latencyMs": 100,
+        "namedScores": {"unsupported_custom_score": 0.4},
+        "cost": 0.001,
+        "tokenUsage": {"prompt": 10, "completion": 5, "cached": 0, "total": 15, "numRequests": 1}
+      },
+      {
+        "promptIdx": 0,
+        "testIdx": 1,
+        "testCase": {},
+        "promptId": "prompt-1",
+        "provider": {"id": "example:provider", "label": "Synthetic provider"},
+        "prompt": {"raw": "Synthetic prompt", "label": "Synthetic prompt"},
+        "vars": {},
+        "failureReason": 0,
+        "success": true,
+        "score": 0.8,
+        "latencyMs": 200,
+        "namedScores": {},
+        "cost": 0.002,
+        "tokenUsage": {"prompt": 10, "completion": 5, "cached": 0, "total": 15, "numRequests": 1}
+      },
+      {
+        "promptIdx": 0,
+        "testIdx": 2,
+        "testCase": {},
+        "promptId": "prompt-1",
+        "provider": {"id": "example:provider", "label": "Synthetic provider"},
+        "prompt": {"raw": "Synthetic prompt", "label": "Synthetic prompt"},
+        "vars": {},
+        "failureReason": 1,
+        "success": false,
+        "score": 0.2,
+        "latencyMs": 300,
+        "namedScores": {},
+        "cost": 0.003,
+        "tokenUsage": {"prompt": 10, "completion": 5, "cached": 0, "total": 15, "numRequests": 1}
+      }
+    ],
+    "prompts": [],
+    "stats": {
+      "successes": 2,
+      "failures": 1,
+      "errors": 0,
+      "tokenUsage": {"prompt": 30, "completion": 15, "cached": 0, "total": 45, "numRequests": 3}
+    }
+  },
+  "config": {"env": {"SYNTHETIC_API_KEY": "must-not-leak"}},
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.122.2",
+    "nodeVersion": "v24.7.0",
+    "platform": "synthetic",
+    "arch": "synthetic",
+    "exportedAt": "2026-08-31T08:01:00.000Z",
+    "futureMetadataField": "ignored"
+  },
+  "futureTopLevelField": "ignored"
+}

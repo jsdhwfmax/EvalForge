@@ -36,12 +36,27 @@ jobs:
         run: |
           EVALFORGE_DATABASE_URL=sqlite:///./ci_evalforge.db evalforge seed
           EVALFORGE_DATABASE_URL=sqlite:///./ci_evalforge.db evalforge check hybrid_top3 --report-dir artifacts
+      - name: Run the promptfoo interoperability gate
+        if: matrix.python-version == '3.12'
+        run: |
+          evalforge import promptfoo tests/fixtures/promptfoo/results-v3.json \
+            --output artifacts/promptfoo-artifact.json \
+            --source-revision "$GITHUB_SHA"
+          evalforge gate artifacts/promptfoo-artifact.json \
+            --policy examples/promptfoo_policy.json \
+            --json artifacts/promptfoo-report.json \
+            --junit artifacts/promptfoo-junit.xml \
+            --sarif artifacts/promptfoo.sarif
       - name: Validate release-gate reports
         if: matrix.python-version == '3.12'
         run: |
           python -m json.tool artifacts/evalforge-report.json >/dev/null
           python -m json.tool artifacts/evalforge.sarif >/dev/null
+          python -m json.tool artifacts/promptfoo-artifact.json >/dev/null
+          python -m json.tool artifacts/promptfoo-report.json >/dev/null
+          python -m json.tool artifacts/promptfoo.sarif >/dev/null
           python -c "from xml.etree import ElementTree; ElementTree.parse('artifacts/evalforge-junit.xml')"
+          python -c "from xml.etree import ElementTree; ElementTree.parse('artifacts/promptfoo-junit.xml')"
       - name: Build and check distributions
         if: matrix.python-version == '3.12'
         run: make release-check

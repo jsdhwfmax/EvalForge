@@ -6,7 +6,7 @@ install:
 	$(PYTHON) -m pip install -e ".[rag,dashboard,dev]"
 
 test:
-	pytest --cov=evalforge --cov-report=term-missing
+	pytest --cov=evalforge --cov-report=term-missing --cov-fail-under=80
 
 lint:
 	ruff check .

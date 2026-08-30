@@ -1,8 +1,10 @@
 import json
+import math
 from pathlib import Path
 from xml.etree import ElementTree
 
 import jsonschema
+import pytest
 from typer.testing import CliRunner
 
 from evalforge.artifacts import artifact_from_summary, load_artifact, write_artifact
@@ -101,6 +103,79 @@ def test_missing_metric_and_baseline_are_gate_errors():
     report = evaluate_gate(needs_baseline, candidate)
     assert report.passed is False
     assert "Baseline artifact is required" in report.checks[0].message
+
+
+def test_non_finite_evidence_and_thresholds_are_rejected(tmp_path):
+    artifact_path = tmp_path / "artifact.json"
+    artifact_path.write_text(
+        json.dumps({"answer_correctness": math.nan}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="finite number"):
+        load_artifact(artifact_path)
+
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "checks": [
+                    {
+                        "id": "quality",
+                        "metric": "answer_correctness",
+                        "op": "gte",
+                        "value": math.inf,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="finite number"):
+        load_policy(policy_path)
+
+
+def test_duplicate_check_ids_are_rejected():
+    with pytest.raises(ValueError, match="Gate check IDs must be unique: quality"):
+        GatePolicy(
+            checks=[
+                GateCheck(id="quality", metric="answer_correctness", op="gte", value=0.8),
+                GateCheck(id="quality", metric="faithfulness", op="gte", value=0.8),
+            ]
+        )
+
+
+@pytest.mark.parametrize(
+    ("candidate_kwargs", "baseline_kwargs", "message"),
+    [
+        ({"unit": "ms"}, {"unit": "seconds"}, "Metric units do not match"),
+        (
+            {"direction": "lower"},
+            {"direction": "higher"},
+            "Metric directions do not match",
+        ),
+    ],
+)
+def test_delta_checks_reject_incompatible_metric_metadata(
+    candidate_kwargs, baseline_kwargs, message
+):
+    candidate = artifact_from_summary({"latency_ms": 100})
+    baseline = artifact_from_summary({"latency_ms": 110})
+    candidate.metrics["latency_ms"] = candidate.metrics["latency_ms"].model_copy(
+        update=candidate_kwargs
+    )
+    baseline.metrics["latency_ms"] = baseline.metrics["latency_ms"].model_copy(
+        update=baseline_kwargs
+    )
+    policy = GatePolicy(
+        checks=[GateCheck(id="latency", metric="latency_ms", op="delta_lte", value=0)]
+    )
+
+    report = evaluate_gate(policy, candidate, baseline)
+
+    assert report.passed is False
+    assert report.checks[0].outcome == "error"
+    assert message in report.checks[0].message
 
 
 def test_cli_writes_reports_and_uses_failure_exit_code(tmp_path):

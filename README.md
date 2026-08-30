@@ -5,10 +5,11 @@
 [![CI](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0B7285.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
+[![GitHub stars](https://img.shields.io/github/stars/jsdhwfmax/EvalForge?style=flat)](https://github.com/jsdhwfmax/EvalForge/stargazers)
 
 EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
 
-> Status: v0.2 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
+> Status: v0.2.1 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
 
 ## Why EvalForge?
 
@@ -105,7 +106,7 @@ evalforge run hybrid_top3 --name "Candidate" --output build/candidate.json
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.2.0
+- uses: jsdhwfmax/EvalForge@v0.2.1
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json
@@ -265,6 +266,8 @@ make test
 ```
 
 Tests cover portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, duplicate imports, and complete multi-configuration experiments. CI runs on Python 3.9 and 3.12 and builds the Docker image.
+
+Maintainers should follow the [release checklist](docs/RELEASE_CHECKLIST.md) so tags, package metadata, distributions, checksums, and public claims remain consistent.
 
 ## Deployment
 

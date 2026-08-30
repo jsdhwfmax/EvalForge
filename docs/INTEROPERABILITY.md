@@ -39,6 +39,10 @@ Each check names a metric, comparison, threshold, and severity:
 
 Missing candidate metrics, missing baseline metrics, and delta checks without a baseline are configuration errors and always fail. EvalForge does not silently skip a release requirement.
 
+Evidence values and policy thresholds must be finite numbers. `NaN`, positive infinity, and negative infinity are rejected because they are not portable JSON numbers and can make comparisons misleading. Policy check IDs must be unique so JUnit test cases and SARIF rules remain unambiguous.
+
+For baseline-delta checks, the candidate and baseline must declare the same unit and metric direction. EvalForge fails the check as a configuration error rather than subtracting values with incompatible semantics.
+
 ## Reports
 
 - JSON preserves every evaluated value and message for automation.
@@ -56,5 +60,6 @@ Schema version `1.0` follows these rules:
 3. Readers reject unknown top-level fields in canonical artifacts and policies to expose typos early.
 4. Flat-summary compatibility is convenience input, not a replacement for the canonical artifact.
 5. Metric semantics belong to the producer; EvalForge evaluates the declared numeric evidence and never implies scientific validity.
+6. Delta comparisons require compatible units and directions; changing either requires a new baseline or an explicit migration.
 
 Open an issue before proposing a schema change. Include a real producer/consumer use case and a migration example.

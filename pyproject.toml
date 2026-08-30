@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evalforge-ci"
-version = "0.2.0"
+version = "0.2.1"
 description = "Portable evaluation evidence and policy gates for RAG and AI assistants"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -39,9 +39,9 @@ dev = [
   "build>=1.2,<2",
   "coverage[toml]>=7.6,<8",
   "jsonschema>=4.23,<5",
-  "mypy>=1.11,<2",
-  "pytest>=8.2,<9",
-  "pytest-cov>=5,<7",
+  "mypy>=1.11,<3",
+  "pytest>=8.2,<10",
+  "pytest-cov>=5,<8",
   "ruff>=0.6,<1",
 ]
 
@@ -55,6 +55,9 @@ Issues = "https://github.com/jsdhwfmax/EvalForge/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+evalforge = ["py.typed"]
 
 [tool.setuptools.data-files]
 "share/evalforge/schemas" = ["schemas/*.json"]

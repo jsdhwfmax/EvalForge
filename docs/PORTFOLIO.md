@@ -4,7 +4,7 @@ Use only claims that remain true for the published repository and deployed envir
 
 ## Resume bullet (English)
 
-> Built and open-sourced EvalForge, a FastAPI/PostgreSQL quality platform for RAG applications that fingerprints datasets, benchmarks retrieval/grounding/security/latency/cost, compares candidates with baselines, and blocks regressions through configurable JSON/JUnit release gates; shipped with 29 automated tests (89% coverage), Docker Compose, GitHub Actions, and a Streamlit dashboard.
+> Built and open-sourced EvalForge, an evaluator-neutral evidence and quality-gate layer for AI systems that converts JSON metrics into baseline-aware policies, JSON, JUnit, and SARIF; also shipped a zero-key RAG reference evaluator with dataset fingerprints, a FastAPI/PostgreSQL API, 35 tests (87.35% coverage), Docker Compose, GitHub Actions, and a Streamlit release dashboard.
 
 ## Measured follow-up bullet
 
@@ -14,7 +14,7 @@ These numbers describe the committed synthetic demo dataset and deterministic lo
 
 ## 中文项目描述
 
-> 设计并开源 EvalForge——面向 RAG/AI Assistant 的质量与安全发布平台。平台对数据集生成稳定指纹，对比基线与候选版本的召回率、正确性、引用支持、幻觉、延迟、成本及对抗安全结果，并通过可配置阈值输出 JSON/JUnit 报告、自动阻断 CI 回归；配套 FastAPI、PostgreSQL/pgvector、Streamlit、Docker 与 GitHub Actions。
+> 设计并开源 EvalForge——面向 AI 系统的评测证据互操作与质量门禁平台，可把任意 JSON 指标转换为可审查的基线策略、JUnit 与 SARIF，并自动阻断 CI 回归；同时提供数据集指纹、无需模型密钥的 RAG 参考评测器、FastAPI、PostgreSQL/pgvector、Streamlit、Docker 与 GitHub Actions。
 
 ## Interview talking points
 
@@ -26,3 +26,4 @@ These numbers describe the committed synthetic demo dataset and deterministic lo
 - How deterministic metrics enable CI gates while LLM judges and human review add semantic coverage.
 - Why a dataset fingerprint is required before treating two experiment deltas as comparable.
 - How JUnit output lets an LLM-specific gate fit standard SDET and CI tooling.
+- Why evaluator-neutral artifacts let maintainers change measurement tools without rewriting release policy.

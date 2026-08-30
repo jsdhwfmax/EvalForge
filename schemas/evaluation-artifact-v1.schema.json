@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jsdhwfmax/EvalForge/main/schemas/evaluation-artifact-v1.schema.json",
+  "title": "EvalForge Evaluation Artifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "producer", "metrics"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "1.0"},
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1}
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "source_revision": {"type": "string"}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value"],
+        "properties": {
+          "value": {"type": "number"},
+          "unit": {"type": "string", "default": "score"},
+          "direction": {
+            "enum": ["higher", "lower", "neutral"],
+            "default": "neutral"
+          }
+        }
+      }
+    },
+    "metadata": {"type": "object"}
+  }
+}

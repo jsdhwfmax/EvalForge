@@ -2,6 +2,8 @@
 
 EvalForge is intentionally a modular monolith for the MVP. It can be deployed as separate API and Dashboard processes while sharing one database and one Python package.
 
+The portable artifact and gate subsystem is independent of the database, API, dashboard, retrieval engine, and model providers. This keeps release policy usable for external evaluators and in restricted CI environments.
+
 ## Components
 
 | Component | Responsibility |
@@ -16,6 +18,9 @@ EvalForge is intentionally a modular monolith for the MVP. It can be deployed as
 | Security suite | Prompt injection, privilege escalation, and canary leakage probes |
 | Release-gate engine | Baseline/candidate deltas, thresholds, JSON and JUnit evidence |
 | Streamlit | Experiment comparison and evidence inspection |
+| Artifact envelope | Evaluator-neutral aggregate metric interchange |
+| Policy gate | Absolute and baseline-delta release checks |
+| Reporters | JSON, JUnit XML, and SARIF output for CI consumers |
 
 ## Data model
 
@@ -77,7 +82,7 @@ erDiagram
 5. The adversarial suite runs isolated synthetic probes with a canary document.
 6. Test-level records are committed with a dataset fingerprint, config snapshot, and metric version.
 7. The comparison engine verifies fingerprints and classifies each candidate delta as improved, regressed, or unchanged.
-8. The release gate evaluates configured thresholds and can emit JSON/JUnit reports with a failing process exit code.
+8. The release gate evaluates configured thresholds and can emit portable artifacts plus JSON/JUnit/SARIF reports with a failing process exit code.
 9. The Dashboard reads the API and never connects directly to the database.
 
 ## Trust boundaries
@@ -86,6 +91,7 @@ erDiagram
 - Imported documents are untrusted content and may contain indirect prompt injection.
 - The MVP API has no authentication. Put it behind an API gateway or identity-aware proxy.
 - Security results are diagnostic signals, not a guarantee that a model is safe.
+- Artifact and policy files are untrusted inputs. Strict schemas reject unknown canonical fields, and report writers never execute values from those files.
 - Dataset access, deletion, and retention must be handled by the deploying organization.
 
 ## Scaling path

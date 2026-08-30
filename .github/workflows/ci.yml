@@ -21,14 +21,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -e ".[dev]"
+      - run: python -m pip install -e ".[rag,dev]"
       - run: ruff check .
       - run: mypy src/evalforge
       - run: pytest --cov=evalforge --cov-report=term-missing --cov-fail-under=85
+      - if: matrix.python-version == '3.12'
+        run: make gate-demo
       - name: Run the reproducible RAG release gate
+        if: matrix.python-version == '3.12'
         run: |
           EVALFORGE_DATABASE_URL=sqlite:///./ci_evalforge.db evalforge seed
           EVALFORGE_DATABASE_URL=sqlite:///./ci_evalforge.db evalforge check hybrid_top3 --report-dir artifacts
+      - if: matrix.python-version == '3.12'
+        run: python -m build
 
   docker:
     runs-on: ubuntu-latest

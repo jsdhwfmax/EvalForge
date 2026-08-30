@@ -2,21 +2,22 @@
 
 ![EvalForge — RAG quality, measured before release](docs/images/evalforge-hero.svg)
 
-**Open-source quality and security evaluation for RAG applications and AI assistants.**
+**Portable evaluation evidence and policy gates for RAG applications and AI assistants.**
 
 [![CI](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml/badge.svg)](https://github.com/jsdhwfmax/EvalForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0B7285.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-29%20passed-12B76A.svg)](tests)
-[![Coverage](https://img.shields.io/badge/coverage-89%25-7F56D9.svg)](tests)
+[![Tests](https://img.shields.io/badge/tests-35%20passed-12B76A.svg)](tests)
+[![Coverage](https://img.shields.io/badge/coverage-87%25-7F56D9.svg)](tests)
+EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
 
-EvalForge turns a golden question set into an executable release decision. It runs retrieval, prompt, and model configurations; fingerprints the dataset; records test-level evidence; compares a candidate with its baseline; and blocks regressions with JSON/JUnit quality-gate reports.
-
-> Portfolio release v0.2. The deterministic local provider enables a zero-key demo and reproducible CI; it is not presented as a substitute for production semantic judging.
+> Status: v0.3 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
 
 ## Why EvalForge?
 
-RAG demos often look good while failing on less visible dimensions: a relevant document is missed, an answer is plausible but unsupported, a citation does not entail the claim, or a prompt injection exposes restricted data. EvalForge evaluates those dimensions together and keeps the result as an auditable experiment.
+AI projects can calculate useful metrics and still lack a shared answer to a maintainer's release question: **what changed, which limits were enforced, and where is the machine-readable evidence?** Evaluation frameworks use different result shapes, while CI platforms understand established formats such as JUnit and SARIF.
+
+EvalForge provides that missing, deliberately narrow interoperability layer. It does not try to replace Ragas, DeepEval, promptfoo, or a team's custom evaluator. A flat JSON metric summary can be wrapped as a versioned artifact, compared with a baseline, evaluated by an explicit policy, and translated into reports that existing developer tooling already understands. The built-in RAG evaluator makes the complete workflow reproducible without a model key or hosted service.
 
 ### The 30-second story
 
@@ -24,12 +25,16 @@ RAG demos often look good while failing on less visible dimensions: a relevant d
 2. Run a baseline and candidate across retrieval/model configurations.
 3. Compare multi-dimensional deltas on the same dataset fingerprint.
 4. Apply explicit quality, security, latency, and cost thresholds.
-5. Emit `evaluation.json` and `quality-gate.xml`; return a non-zero exit code on regression.
+5. Emit a portable artifact plus JSON, JUnit, and SARIF reports; return a non-zero exit code on regression.
 
 Read the engineering narrative in the [case study](docs/CASE_STUDY.md) or use the [resume-ready project notes](docs/PORTFOLIO.md).
 
 | Capability | Included |
 |---|---|
+| Portable evidence | Versioned, evaluator-neutral JSON artifact and JSON Schemas |
+| Policy gates | Absolute thresholds, baseline deltas, errors and advisory warnings |
+| CI reports | Stable exit codes plus JSON, JUnit XML, and SARIF 2.1.0 |
+| GitHub integration | Reusable composite Action with no hosted EvalForge account |
 | Golden datasets | JSON import API, file upload, CLI, example dataset |
 | Retrieval | BM25, deterministic vector, hybrid; configurable Recall@K |
 | Models | Offline extractive baseline and OpenAI-compatible endpoints |
@@ -44,6 +49,33 @@ Read the engineering narrative in the [case study](docs/CASE_STUDY.md) or use th
 | Delivery | pytest, GitHub Actions, Docker Compose, Render blueprint |
 
 ## Quick start
+
+### Quality gate (no server or model key)
+
+```bash
+git clone https://github.com/jsdhwfmax/EvalForge.git
+cd EvalForge
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+evalforge gate examples/candidate_summary.json \
+  --policy examples/quality_policy.json \
+  --baseline examples/baseline_summary.json \
+  --json build/evalforge-report.json \
+  --junit build/evalforge-junit.xml \
+  --sarif build/evalforge.sarif
+```
+
+The committed example passes required checks and reports one advisory answer-quality regression. Gate exit codes are `0` for pass, `1` for a failed/error check, and `2` for invalid input or policy configuration.
+
+The candidate can also be any flat numeric summary:
+
+```json
+{"faithfulness": 0.91, "latency_ms": 420, "cost_usd": 0.003}
+```
+
+See the [portable artifact and policy specification](docs/INTEROPERABILITY.md).
 
 ### Docker (recommended)
 
@@ -66,7 +98,7 @@ The API container idempotently loads the demo dataset and two configurations. Po
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dashboard,dev]"
+pip install -e ".[rag,dashboard,dev]"
 cp .env.example .env
 evalforge seed
 uvicorn evalforge.api:app --reload
@@ -82,8 +114,8 @@ streamlit run dashboard/app.py
 Run both demo configurations from the CLI:
 
 ```bash
-evalforge run baseline_top1 --name "Baseline"
-evalforge run hybrid_top3 --name "Candidate"
+evalforge run baseline_top1 --name "Baseline" --output build/baseline.json
+evalforge run hybrid_top3 --name "Candidate" --output build/candidate.json
 ```
 
 Run the same release gate used by GitHub Actions:
@@ -92,7 +124,21 @@ Run the same release gate used by GitHub Actions:
 evalforge check hybrid_top3 --name "PR candidate" --report-dir artifacts
 ```
 
-The command prints the measured summary, writes `artifacts/evaluation.json` and `artifacts/quality-gate.xml`, and exits non-zero if any threshold fails.
+The command prints the measured summary, writes a portable evaluation artifact plus JSON, JUnit, and SARIF reports, and exits non-zero if any threshold fails.
+
+### GitHub Action
+
+```yaml
+- uses: jsdhwfmax/EvalForge@v0.2.0
+  with:
+    candidate: build/candidate.json
+    baseline: build/baseline.json
+    policy: evalforge-policy.json
+```
+
+The Action writes `evalforge-report.json`, `evalforge-junit.xml`, and `evalforge.sarif` by default. Upload them with the standard reporting actions already used by your repository. Pin a full commit SHA where your supply-chain policy requires immutable Actions.
+
+The base `evalforge-ci` distribution installs only the gate dependencies. The built-in RAG API is available through the `rag` extra; the UI uses the `dashboard` extra. This keeps the reusable gate small for downstream CI jobs.
 
 ## How an experiment works
 
@@ -109,7 +155,7 @@ flowchart LR
     E --> DB[(PostgreSQL + pgvector)]
     S[Adversarial suite] --> M
     E --> G{Release gate}
-    G --> J[JSON + JUnit reports]
+    G --> J[JSON + JUnit + SARIF reports]
     J --> CI[GitHub Actions]
     E --> API[FastAPI]
     DB --> API
@@ -119,6 +165,20 @@ flowchart LR
 Every test result stores the answer, citations, retrieved document IDs, quality scores, latency, token counts, cost, and provider metadata. Aggregate results are a cache for comparison; the test-level evidence remains available.
 
 Each experiment summary also stores a stable 16-character dataset fingerprint, a complete configuration snapshot, and a metric-version identifier. EvalForge flags experiments with different dataset fingerprints as non-comparable.
+
+The gate path is independent of the API, dashboard, database, and model provider:
+
+```mermaid
+flowchart LR
+    A[EvalForge, Ragas, DeepEval, promptfoo, or custom evaluator] --> J[JSON metrics]
+    J --> P[Portable artifact v1]
+    B[Baseline artifact] --> G{Policy gate}
+    P --> G
+    G --> O[Exit code]
+    G --> R[JSON]
+    G --> U[JUnit]
+    G --> S[SARIF]
+```
 
 ## Metrics
 
@@ -251,9 +311,9 @@ make lint
 make test
 ```
 
-The 29-test suite covers retrieval ranking, metrics, security grading, persistence, API validation, duplicate imports, complete multi-configuration experiments, reproducibility fingerprints, comparison directionality, quality-gate pass/fail behavior, and JSON/JUnit reports. Current measured coverage is 89%.
+The 35-test suite covers portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, dataset fingerprints, baseline comparisons, and complete multi-configuration experiments. Current measured line coverage is 87.35%.
 
-CI runs on Python 3.9 and 3.12, builds the Docker image, and executes a real seeded RAG release gate—not only unit tests.
+CI runs on Python 3.9 and 3.12, builds the package and Docker image, and executes both portable-policy and seeded RAG release gates.
 
 ## Deployment
 
@@ -264,12 +324,21 @@ CI runs on Python 3.9 and 3.12, builds the Docker image, and executes a real see
 
 See [architecture and production notes](docs/ARCHITECTURE.md).
 
+## Ecosystem role
+
+EvalForge's ecosystem value is interoperability and auditability, not a claim that one deterministic score can certify an AI system. Its artifact keeps metric values, units, direction, producer, and source revision portable; its policy makes release decisions reviewable in Git; its reporters reuse CI standards instead of creating another proprietary dashboard requirement.
+
+The project records adoption evidence conservatively—stars, downstream integrations, released versions, issues, and external contributors are never invented. Read the [ecosystem rationale and success measures](docs/ECOSYSTEM.md), [governance](GOVERNANCE.md), and [maintainer responsibilities](MAINTAINERS.md).
+
 ## Roadmap
 
 - Pluggable LLM-as-judge rubrics and calibrated human review
 - Chunking and embedding provider experiments
 - Dataset/version lineage and statistical significance
 - Durable workers, progress streaming, and experiment cancellation
+- Adapters and fixtures for widely used evaluator result formats
+- Signed evaluation provenance and SLSA-compatible attestations
+- GitLab and Jenkins integration examples
 - Multi-turn agent/tool-call evaluation
 - Role-based access control and tenant isolation
 - React UI once workflows stabilize

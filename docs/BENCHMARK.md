@@ -17,9 +17,9 @@ The top-3 configuration retrieved every labeled relevant document, including bot
 
 Sub-millisecond local latency and zero cost describe only the offline provider. They must not be used as estimates for a hosted LLM.
 
-## v0.2 release-gate verification
+## v0.3 release-gate verification
 
-Re-verified on 2026-08-30 against dataset fingerprint `b4e60647fc469bb2`. The Hybrid · top 3 candidate passed all six default release checks: minimum Recall@K, answer correctness, citation support, security pass rate, plus maximum hallucination rate and mean latency. The check emitted both JSON and JUnit reports, matching the command executed in GitHub Actions.
+Re-verified on 2026-08-30 against dataset fingerprint `b4e60647fc469bb2`. The Hybrid · top 3 candidate passed all six default release checks: minimum Recall@K, answer correctness, citation support, security pass rate, plus maximum hallucination rate and mean latency. The check emitted a portable artifact plus JSON, JUnit, and SARIF reports, matching the command executed in GitHub Actions.
 
 ## Reproduce
 

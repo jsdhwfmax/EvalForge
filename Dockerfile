@@ -7,9 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
+COPY schemas ./schemas
 COPY dashboard ./dashboard
 COPY examples ./examples
-RUN pip install --upgrade pip && pip install ".[dashboard]"
+RUN pip install --upgrade pip && pip install ".[rag,dashboard]"
 
 EXPOSE 8000
 CMD ["uvicorn", "evalforge.api:app", "--host", "0.0.0.0", "--port", "8000"]

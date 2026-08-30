@@ -23,11 +23,11 @@ EvalForge treats RAG quality as a software-testing problem. A version is evaluat
 | SQLite locally, PostgreSQL/pgvector in production | Zero-key onboarding plus a realistic deployment path | SQLite does not exercise native ANN search |
 | Deterministic local provider | Reproducible demos and CI without external cost | It is not a production-quality judge |
 | Stable dataset fingerprint | Prevent invalid comparisons across changed corpora | Fingerprint records identity, not data lineage history |
-| JSON + JUnit gate reports | Human-readable evidence and standard CI ingestion | Current reports are experiment-level, not trend analytics |
+| JSON + JUnit + SARIF reports | Human-readable evidence and standard CI/security ingestion | Current reports are experiment-level, not trend analytics |
 
 ## Test strategy
 
-The suite covers metric edge cases, three retrieval modes, provider guardrails, duplicate imports, API validation, persistence, experiment execution, baseline/candidate comparison, quality-gate pass/fail behavior, dataset fingerprints, JSON reports, and JUnit output. GitHub Actions runs the suite on Python 3.9 and 3.12, builds the Docker image, and executes a real seeded RAG release gate.
+The suite covers metric edge cases, three retrieval modes, provider guardrails, duplicate imports, API validation, persistence, experiment execution, baseline/candidate comparison, quality-gate pass/fail behavior, dataset fingerprints, artifact schemas, and JSON/JUnit/SARIF output. GitHub Actions runs the suite on Python 3.9 and 3.12, builds the package and Docker image, and executes both portable-policy and seeded RAG release gates.
 
 ## Measured result
 
@@ -52,4 +52,4 @@ The candidate retrieved both sources required by the multi-hop question, but the
 
 ## Interview summary
 
-> I built EvalForge to turn RAG evaluation into an executable release process. It fingerprints the dataset, runs retrieval and adversarial tests, stores test-level evidence, compares a candidate with its baseline, and emits JSON/JUnit quality-gate reports that can fail CI. The demo benchmark caught a real multi-metric trade-off: higher Recall@K produced lower answer correctness because added context increased irrelevant output.
+> I built EvalForge to turn RAG evaluation into an executable release process. It fingerprints the dataset, runs retrieval and adversarial tests, stores test-level evidence, compares a candidate with its baseline, and emits portable JSON/JUnit/SARIF quality-gate evidence that can fail CI. The demo benchmark caught a real multi-metric trade-off: higher Recall@K produced lower answer correctness because added context increased irrelevant output.

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jsdhwfmax/EvalForge/main/schemas/gate-policy-v1.schema.json",
+  "title": "EvalForge Gate Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "checks"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "version": {"const": 1},
+    "name": {"type": "string", "minLength": 1},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "metric", "op", "value"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+          },
+          "metric": {"type": "string", "minLength": 1},
+          "op": {"enum": ["gte", "lte", "delta_gte", "delta_lte"]},
+          "value": {"type": "number"},
+          "severity": {"enum": ["error", "warning"], "default": "error"},
+          "description": {"type": "string", "default": ""}
+        }
+      }
+    }
+  }
+}

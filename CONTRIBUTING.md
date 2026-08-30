@@ -10,12 +10,14 @@ Thanks for helping make RAG quality measurable.
 
 Pull requests should explain the user problem, implementation, verification evidence, and any metric-compatibility impact. Changes to a metric definition should update `docs/METRICS.md` and include before/after fixtures.
 
+Changes to the portable artifact or gate policy must also update the matching JSON Schema, `docs/INTEROPERABILITY.md`, and compatibility tests. New evaluator integrations should be backed by a sanitized upstream fixture rather than an invented output shape.
+
 ## Development setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dashboard,dev]"
+pip install -e ".[rag,dashboard,dev]"
 evalforge seed
 pytest
 ```

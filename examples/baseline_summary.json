@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "producer": {"name": "evalforge", "version": "0.2.0"},
+  "run": {"id": "demo-bm25-top1"},
+  "metrics": {
+    "answer_correctness": {"value": 0.7592, "unit": "ratio", "direction": "higher"},
+    "citation_support": {"value": 1.0, "unit": "ratio", "direction": "higher"},
+    "hallucination_rate": {"value": 0.0, "unit": "ratio", "direction": "lower"},
+    "retrieval_recall_at_k": {"value": 0.9, "unit": "ratio", "direction": "higher"},
+    "security_pass_rate": {"value": 1.0, "unit": "ratio", "direction": "higher"}
+  },
+  "metadata": {"dataset": "examples/demo_dataset.json", "configuration": "BM25 top-1"}
+}

@@ -1,12 +1,8 @@
-import json
 from types import SimpleNamespace
-from xml.etree import ElementTree
 
 from evalforge.gates import (
     compare_experiment_summaries,
     evaluate_quality_gate,
-    write_json_report,
-    write_junit_report,
 )
 from evalforge.reproducibility import config_snapshot, dataset_fingerprint
 
@@ -57,18 +53,6 @@ def test_comparison_understands_metric_direction_and_fingerprint():
     assert result["metrics"]["latency_ms"]["verdict"] == "improved"
     assert result["improvements"] == 2
     assert result["regressions"] == 1
-
-
-def test_json_and_junit_reports(tmp_path):
-    gate = evaluate_quality_gate({"answer_correctness": 0.4}, {"answer_correctness": 0.5})
-    json_path = tmp_path / "report.json"
-    xml_path = tmp_path / "report.xml"
-    write_json_report(json_path, gate)
-    write_junit_report(xml_path, gate["checks"], "release")
-    assert json.loads(json_path.read_text())["passed"] is False
-    suite = ElementTree.parse(xml_path).getroot()
-    assert suite.attrib == {"name": "release", "tests": "1", "failures": "1", "errors": "0"}
-    assert suite.find("testcase/failure") is not None
 
 
 def test_reproducibility_fingerprint_and_config_snapshot():

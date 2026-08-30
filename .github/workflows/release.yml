@@ -22,7 +22,9 @@ jobs:
       - run: python -m pip install build twine
       - run: python -m build
       - run: python -m twine check dist/*
-      - run: sha256sum dist/* > dist/SHA256SUMS
+      - name: Write portable checksums
+        working-directory: dist
+        run: sha256sum *.whl *.tar.gz > SHA256SUMS
       - name: Attach distributions and checksums
         env:
           GH_TOKEN: ${{ github.token }}

@@ -334,7 +334,7 @@ make lint
 make test
 ```
 
-The 39-test suite covers portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, dataset fingerprints, baseline comparisons, and complete multi-configuration experiments. Current measured line coverage is 87.68%.
+The 54-test suite covers portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, dataset fingerprints, baseline comparisons, promptfoo interoperability, release-workflow invariants, and complete multi-configuration experiments. Current measured branch-aware coverage is 86.66%.
 
 CI runs on Python 3.9 and 3.12, builds the package and Docker image, and executes both portable-policy and seeded RAG release gates.
 

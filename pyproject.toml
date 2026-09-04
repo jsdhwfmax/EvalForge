@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evalforge-ci"
-version = "0.3.0"
+version = "0.3.1"
 description = "Portable evaluation evidence and policy gates for RAG and AI assistants"
 readme = "README.md"
 requires-python = ">=3.9"

@@ -11,7 +11,7 @@
 
 EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
 
-> Status: v0.3 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
+> Status: v0.3.1 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
 
 ## Why EvalForge?
 
@@ -32,6 +32,7 @@ Read the engineering narrative in the [case study](docs/CASE_STUDY.md) or use th
 | Capability | Included |
 |---|---|
 | Portable evidence | Versioned, evaluator-neutral JSON artifact and JSON Schemas |
+| Evaluator adapters | Explicit promptfoo JSON v3 import with sanitized aggregate evidence |
 | Policy gates | Absolute thresholds, baseline deltas, errors and advisory warnings |
 | CI reports | Stable exit codes plus JSON, JUnit XML, and SARIF 2.1.0 |
 | GitHub integration | Reusable composite Action with no hosted EvalForge account |
@@ -76,6 +77,26 @@ The candidate can also be any flat numeric summary:
 ```
 
 See the [portable artifact and policy specification](docs/INTEROPERABILITY.md).
+
+### Import promptfoo evidence
+
+Convert a promptfoo JSON output file into the same small artifact used by the
+gate, without copying prompts, responses, configuration, or traces:
+
+```bash
+promptfoo eval --output build/promptfoo-results.json
+evalforge import promptfoo build/promptfoo-results.json \
+  --output build/evalforge-artifact.json \
+  --source-revision "$GITHUB_SHA"
+
+evalforge gate build/evalforge-artifact.json \
+  --policy examples/promptfoo_policy.json
+```
+
+The adapter requires promptfoo results schema 3 and versioned producer
+metadata. It is verified against promptfoo 0.122.2; see the exact metric
+mapping and privacy boundary in the
+[interoperability specification](docs/INTEROPERABILITY.md#promptfoo-adapter).
 
 ### Docker (recommended)
 
@@ -129,7 +150,7 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.3.0
+- uses: jsdhwfmax/EvalForge@v0.3.1
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json

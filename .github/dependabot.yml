@@ -9,6 +9,13 @@ updates:
         dependency-type: production
       python-development:
         dependency-type: development
+    # mypy 2.x and Twine 7.x require Python >=3.10. Keep development tooling
+    # installable in the maintained Python 3.9 CI job.
+    ignore:
+      - dependency-name: mypy
+        update-types: [version-update:semver-major]
+      - dependency-name: twine
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:

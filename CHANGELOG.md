@@ -2,6 +2,23 @@
 
 All notable changes are documented here. The project follows semantic versioning while the artifact and policy formats carry independent schema versions.
 
+## [0.3.1] - 2026-08-31
+
+### Added
+
+- An explicit promptfoo JSON results-schema-v3 adapter that emits sanitized aggregate evidence and preserves producer provenance.
+- Upstream-format synthetic promptfoo fixtures and compatibility tests covering unknown fields, missing provenance, non-finite evidence, inconsistent counts, and the CLI import path.
+- CodeQL analysis for Python pull requests, main-branch pushes, and scheduled scans with minimal permissions.
+- PyPI Trusted Publishing through GitHub OIDC, with the official publish Action pinned to a reviewed commit.
+- Workflow invariants that reject floating third-party Action references and keep the OIDC permission scoped to the publish job.
+
+### Changed
+
+- Build release distributions once, verify them with Twine and SHA-256, then reuse the same workflow artifact for GitHub Release assets and PyPI publication.
+- Document the promptfoo metric mapping, source-version boundary, privacy exclusions, and first-release Trusted Publisher checklist.
+- Keep Dependabot from proposing mypy 2.x or Twine 7.x while the project maintains Python 3.9 compatibility.
+- Include conformance fixtures, examples, workflow definitions, and release metadata in the source distribution so its bundled test suite is self-contained.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

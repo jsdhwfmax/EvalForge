@@ -26,6 +26,46 @@ Metric names are intentionally open. Unknown metrics remain valid. A producer sh
 
 For incremental adoption, `evalforge gate` also accepts a flat JSON object of numeric metrics or an object with a `summary` field. EvalForge assigns known units and directions where possible and treats unknown values as neutral scores.
 
+## promptfoo adapter
+
+EvalForge has an explicit adapter for promptfoo JSON output files:
+
+```bash
+promptfoo eval --output build/promptfoo-results.json
+evalforge import promptfoo build/promptfoo-results.json \
+  --output build/evalforge-artifact.json \
+  --source-revision "$GITHUB_SHA"
+evalforge gate build/evalforge-artifact.json \
+  --policy examples/promptfoo_policy.json
+```
+
+The adapter accepts promptfoo `OutputFile` documents whose nested
+`results.version` is exactly `3`. The producer version is read from the
+required `metadata.promptfooVersion` field and preserved in the EvalForge
+artifact. Compatibility is verified against promptfoo `0.122.2` at upstream
+commit `9cd19241a0706fcf59dd609167f4218612fc4beb`; later producer versions remain
+acceptable only while they emit schema version 3.
+
+| promptfoo evidence | EvalForge metric | Mapping |
+|---|---|---|
+| `results.results[].success` | `promptfoo_pass_rate` | successful rows / all rows |
+| `results.results[].score` | `promptfoo_mean_score` | arithmetic mean |
+| `results.results[].latencyMs` | `latency_ms` | arithmetic mean in milliseconds |
+| `results.results[].cost` | `total_cost_usd` | sum, emitted only when every row reports cost |
+| `results.stats.tokenUsage.prompt` | `input_tokens` | aggregate prompt tokens |
+| `results.stats.tokenUsage.completion` | `output_tokens` | aggregate completion tokens |
+| number of result rows | `test_cases` | count |
+
+The declared success, failure, and error counts must agree with the result
+rows. Imported numeric evidence must be finite; latency, cost, tokens, and
+counts must also be non-negative.
+
+The adapter deliberately excludes prompt text, responses, variables, config,
+traces, arbitrary metadata, and unregistered `namedScores`. A promptfoo output
+may contain secrets or sensitive test data even after upstream sanitization,
+so the small aggregate artifact is the safer CI boundary. Add a reviewed
+mapping before treating a custom named score as stable release evidence.
+
 ## Gate policy v1
 
 The normative schema is [`schemas/gate-policy-v1.schema.json`](../schemas/gate-policy-v1.schema.json).
@@ -61,5 +101,6 @@ Schema version `1.0` follows these rules:
 4. Flat-summary compatibility is convenience input, not a replacement for the canonical artifact.
 5. Metric semantics belong to the producer; EvalForge evaluates the declared numeric evidence and never implies scientific validity.
 6. Delta comparisons require compatible units and directions; changing either requires a new baseline or an explicit migration.
+7. Evaluator adapters are opt-in commands with independently documented upstream schema boundaries; EvalForge never guesses an evaluator from arbitrary JSON.
 
 Open an issue before proposing a schema change. Include a real producer/consumer use case and a migration example.

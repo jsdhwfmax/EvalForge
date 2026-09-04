@@ -33,6 +33,8 @@ From its public launch on 2026-08-24 through 2026-08-30, the repository received
 
 On 2026-08-31, the repository reached 48 GitHub stars. Public GitHub data still showed zero forks and zero external contributors, and an exact global code search found no downstream repository using `uses: jsdhwfmax/EvalForge`. These numbers continue to measure early interest rather than adoption; confirmed users will be recorded separately in [`ADOPTERS.md`](../ADOPTERS.md) with consent and a public integration link.
 
+Later on 2026-08-31, the public repository reached 50 GitHub stars. It still had zero forks, zero external contributors, and zero confirmed downstream adopters; the only open pull request was an automated Dependabot update. The milestone is recorded as early interest only and does not change the project's adoption claims.
+
 ## Twelve-month success criteria
 
 1. Publish the uniquely named `evalforge-ci` distribution with reproducible releases.

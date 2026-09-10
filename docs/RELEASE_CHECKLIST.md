@@ -7,7 +7,7 @@ EvalForge releases should leave public, reproducible evidence that the tagged so
 3. Install the built wheel in a fresh environment and run the committed quality-gate example.
 4. Confirm main-branch CI, CodeQL, and all dependency update checks are green.
 5. Before the first PyPI release, create a protected GitHub environment named `pypi` and configure a PyPI pending Trusted Publisher with owner `jsdhwfmax`, repository `EvalForge`, workflow `release.yml`, and environment `pypi`. Do not create an API token.
-6. Confirm `https://pypi.org/pypi/evalforge-ci/json` still returns 404 before registering the pending publisher. Stop if another owner has claimed the distribution name.
+6. For the first registration only, confirm `https://pypi.org/pypi/evalforge-ci/json` returns 404 before registering the pending publisher; stop if another owner has claimed the name. The package is now published. For subsequent releases, verify the existing project's Trusted Publisher still matches this repository, workflow, and environment, and confirm the new version is not already published. Do not try to overwrite an existing PyPI release.
 7. Create a signed or GitHub-verified tag and publish release notes that state compatibility and known limitations.
 8. Verify the release workflow attached the wheel, source distribution, and `SHA256SUMS` file and completed the `pypi-publish` job through OIDC.
 9. Verify the exact release from an unauthenticated environment with `python -m pip install --no-cache-dir 'evalforge-ci==<version>'`, then run `evalforge --help` and the committed gate example.

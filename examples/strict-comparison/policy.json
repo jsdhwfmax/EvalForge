@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "name": "Comparable release evidence",
+  "comparison": {
+    "require_same_dataset": true,
+    "require_same_producer": true,
+    "require_same_metric_version": true
+  },
+  "checks": [
+    {
+      "id": "quality-floor",
+      "metric": "quality",
+      "op": "gte",
+      "value": 0.85
+    },
+    {
+      "id": "quality-regression",
+      "metric": "quality",
+      "op": "delta_gte",
+      "value": -0.02
+    }
+  ]
+}

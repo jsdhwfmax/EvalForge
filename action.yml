@@ -33,6 +33,25 @@ inputs:
     description: SARIF 2.1.0 report path.
     required: false
     default: evalforge.sarif
+  markdown-output:
+    description: Markdown gate summary path.
+    required: false
+    default: evalforge-summary.md
+  job-summary:
+    description: Append the Markdown report to the GitHub job summary, including on failure.
+    required: false
+    default: "true"
+
+outputs:
+  exit-code:
+    description: Gate exit code (0 pass, 1 blocked, 2 invalid input).
+    value: ${{ steps.gate.outputs.exit-code }}
+  json-report:
+    description: Path to the JSON report.
+    value: ${{ inputs.json-output }}
+  markdown-report:
+    description: Path to the Markdown summary.
+    value: ${{ inputs.markdown-output }}
 
 runs:
   using: composite
@@ -45,6 +64,7 @@ runs:
       shell: bash
       run: python -m pip install "$GITHUB_ACTION_PATH"
     - name: Enforce evaluation policy
+      id: gate
       shell: bash
       env:
         EVALFORGE_CANDIDATE: ${{ inputs.candidate }}
@@ -53,12 +73,27 @@ runs:
         EVALFORGE_JSON: ${{ inputs.json-output }}
         EVALFORGE_JUNIT: ${{ inputs.junit-output }}
         EVALFORGE_SARIF: ${{ inputs.sarif-output }}
+        EVALFORGE_MARKDOWN: ${{ inputs.markdown-output }}
+        EVALFORGE_JOB_SUMMARY: ${{ inputs.job-summary }}
       run: |
         args=("$EVALFORGE_CANDIDATE" --policy "$EVALFORGE_POLICY")
         if [[ -n "$EVALFORGE_BASELINE" ]]; then
           args+=(--baseline "$EVALFORGE_BASELINE")
         fi
+        summary_dir=$(mktemp -d)
+        trap 'rm -rf "$summary_dir"' EXIT
+        gate_status=0
         evalforge gate "${args[@]}" \
           --json "$EVALFORGE_JSON" \
           --junit "$EVALFORGE_JUNIT" \
-          --sarif "$EVALFORGE_SARIF"
+          --sarif "$EVALFORGE_SARIF" \
+          --markdown "$summary_dir/summary.md" || gate_status=$?
+        echo "exit-code=$gate_status" >> "$GITHUB_OUTPUT"
+        if [[ -f "$summary_dir/summary.md" ]]; then
+          mkdir -p "$(dirname "$EVALFORGE_MARKDOWN")"
+          cp "$summary_dir/summary.md" "$EVALFORGE_MARKDOWN"
+          if [[ "$EVALFORGE_JOB_SUMMARY" == "true" ]]; then
+            cat "$summary_dir/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        fi
+        exit "$gate_status"

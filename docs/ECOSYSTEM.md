@@ -35,12 +35,18 @@ On 2026-08-31, the repository reached 48 GitHub stars. Public GitHub data still 
 
 Later on 2026-08-31, the public repository reached 50 GitHub stars. It still had zero forks, zero external contributors, and zero confirmed downstream adopters; the only open pull request was an automated Dependabot update. The milestone is recorded as early interest only and does not change the project's adoption claims.
 
+On 2026-09-10 at 11:05 UTC, the [public GitHub repository API](https://api.github.com/repos/jsdhwfmax/EvalForge) reported 177 stars and zero forks. The [contributors endpoint](https://api.github.com/repos/jsdhwfmax/EvalForge/contributors) listed one contributor, the primary maintainer. There were [four public GitHub releases](https://github.com/jsdhwfmax/EvalForge/releases), including two marked prerelease; the latest was v0.3.1. The [PyPI project](https://pypi.org/project/evalforge-ci/0.3.1/) exposed the 0.3.1 distribution. No independent downstream adopter had been verified for `ADOPTERS.md`. These are dated observations, not live counts or evidence of production adoption.
+
+The package-publication milestone is therefore complete. The harder next step is demonstrating that another maintainer can integrate EvalForge, understand a failed gate, and keep using it as their evaluator changes. Adapter fixtures, complete CI examples, comparison safeguards, and reports that identify their input evidence support that work. They are engineering deliverables, not substitutes for independently confirmed use.
+
+See [OSS readiness and evidence](OSS_READINESS.md) for the current application rationale and the limits of each evidence category.
+
 ## Twelve-month success criteria
 
-1. Publish the uniquely named `evalforge-ci` distribution with reproducible releases.
+1. Maintain the published `evalforge-ci` distribution with verified wheel/source releases, installation checks, and documented compatibility.
 2. Land at least three external evaluator adapters backed by upstream fixtures.
 3. Document at least five independent downstream repositories in an adopters file with maintainer consent.
 4. Maintain schema compatibility and a public changelog across at least four releases.
 5. Respond to security and correctness reports within the targets in `SECURITY.md`.
 
-These are project goals, not present-tense claims.
+Publication of `evalforge-ci` has been verified. The remaining targets are project goals, not present-tense claims.

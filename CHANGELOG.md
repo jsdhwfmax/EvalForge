@@ -2,6 +2,30 @@
 
 All notable changes are documented here. The project follows semantic versioning while the artifact and policy formats carry independent schema versions.
 
+## [0.4.0] - 2026-09-10
+
+### Added
+
+- Offline Ragas records import with explicit metric columns, complete-row validation, and aggregate-only artifacts.
+- DeepEval 3.8.1 and 4.2.2 result imports with a reviewed built-in metric allowlist and separate names for score semantics that changed between major versions.
+- Opt-in policy requirements for matching dataset fingerprints, exact producer versions, and metric-definition identities; missing or mismatched evidence fails closed.
+- SHA-256 digests of normalized candidate, baseline, and policy inputs, with source revisions and producer identity in CI reports.
+- Markdown reports and GitHub Action job summaries, including blocked gates, plus Action exit-code/report outputs.
+- Reproducible strict-comparison examples, adapter conformance fixtures, a full CI adoption recipe, and a dated OSS evidence map.
+
+### Fixed
+
+- Preserve dataset and metric-version identities when loading API summary envelopes.
+- Reject boolean and numeric-string coercion in canonical metric values and policy thresholds.
+- Fail safely when subtraction of finite metric values overflows, instead of producing a passing infinite delta.
+- Keep malformed identity objects and arbitrary artifact metadata out of report evidence.
+
+### Compatibility
+
+- Python 3.9 remains supported; base installation still needs only Pydantic and Typer.
+- Artifact schema 1.0 and policy version 1 gain optional fields. Existing policies remain unchanged unless strict comparison is explicitly enabled.
+- Producer declarations and input digests support traceability; they are not signatures, independent adoption evidence, or proof of scientific validity.
+
 ## [0.3.1] - 2026-08-31
 
 ### Added

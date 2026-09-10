@@ -4,28 +4,82 @@
   "title": "EvalForge Gate Policy v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "checks"],
+  "required": [
+    "version",
+    "checks"
+  ],
   "properties": {
-    "$schema": {"type": "string"},
-    "version": {"const": 1},
-    "name": {"type": "string", "minLength": 1},
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
     "checks": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "metric", "op", "value"],
+        "required": [
+          "id",
+          "metric",
+          "op",
+          "value"
+        ],
         "properties": {
           "id": {
             "type": "string",
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
           },
-          "metric": {"type": "string", "minLength": 1},
-          "op": {"enum": ["gte", "lte", "delta_gte", "delta_lte"]},
-          "value": {"type": "number"},
-          "severity": {"enum": ["error", "warning"], "default": "error"},
-          "description": {"type": "string", "default": ""}
+          "metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "op": {
+            "enum": [
+              "gte",
+              "lte",
+              "delta_gte",
+              "delta_lte"
+            ]
+          },
+          "value": {
+            "type": "number"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "default": "error"
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "require_same_dataset": {
+          "type": "boolean",
+          "default": false
+        },
+        "require_same_producer": {
+          "type": "boolean",
+          "default": false
+        },
+        "require_same_metric_version": {
+          "type": "boolean",
+          "default": false
         }
       }
     }

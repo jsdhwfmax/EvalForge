@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "producer": {
+    "name": "example-evaluator",
+    "version": "1.0.0"
+  },
+  "run": {
+    "id": "changed-dataset",
+    "source_revision": "candidate-demo"
+  },
+  "metrics": {
+    "quality": {
+      "value": 0.99,
+      "unit": "ratio",
+      "direction": "higher"
+    }
+  },
+  "metadata": {
+    "dataset_fingerprint": "synthetic-set-v2",
+    "metric_version": "example-score-v1"
+  }
+}

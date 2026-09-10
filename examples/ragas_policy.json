@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsdhwfmax/EvalForge/main/schemas/gate-policy-v1.schema.json",
+  "version": 1,
+  "name": "Ragas score gate",
+  "checks": [
+    {
+      "id": "ragas-faithfulness",
+      "metric": "faithfulness",
+      "op": "gte",
+      "value": 0.7,
+      "description": "Mean faithfulness must be at least 0.7"
+    },
+    {
+      "id": "ragas-answer-relevancy",
+      "metric": "answer_relevancy",
+      "op": "gte",
+      "value": 0.8,
+      "description": "Mean answer relevancy must be at least 0.8"
+    },
+    {
+      "id": "ragas-sample-count",
+      "metric": "test_cases",
+      "op": "gte",
+      "value": 2,
+      "description": "The synthetic demonstration must contain at least two samples"
+    }
+  ]
+}

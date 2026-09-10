@@ -2,12 +2,19 @@ import json
 import os
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 
+from evalforge.adapters.deepeval import load_deepeval_export
 from evalforge.adapters.promptfoo import load_promptfoo_export
-from evalforge.artifacts import artifact_from_summary, load_artifact, write_artifact
+from evalforge.adapters.ragas import load_ragas_export
+from evalforge.artifacts import (
+    EvaluationArtifact,
+    artifact_from_summary,
+    load_artifact,
+    write_artifact,
+)
 from evalforge.gates import (
     GateCheck,
     GatePolicy,
@@ -17,6 +24,7 @@ from evalforge.gates import (
     load_policy,
     render_json,
     render_junit,
+    render_markdown,
     render_sarif,
     render_terminal,
     write_report,
@@ -25,6 +33,13 @@ from evalforge.gates import (
 app = typer.Typer(help="EvalForge command-line tools")
 import_app = typer.Typer(help="Convert an explicit evaluator format to EvalForge evidence")
 app.add_typer(import_app, name="import")
+
+
+def _declare_metric_version(artifact: EvaluationArtifact, value: Optional[str]) -> None:
+    if value is not None:
+        if not value.strip():
+            raise typer.BadParameter("metric-version must be a non-empty identity")
+        artifact.metadata["metric_version"] = value
 
 
 @import_app.command("promptfoo")
@@ -36,15 +51,65 @@ def import_promptfoo(
         "--source-revision",
         help="Candidate source revision evaluated by promptfoo",
     ),
+    dataset_fingerprint: Optional[str] = typer.Option(None, "--dataset-fingerprint"),
+    metric_version: Optional[str] = typer.Option(None, "--metric-version"),
 ) -> None:
     """Convert a promptfoo JSON OutputFile (results schema v3)."""
 
     try:
-        artifact = load_promptfoo_export(source, source_revision=source_revision)
+        artifact = load_promptfoo_export(
+            source, source_revision=source_revision, dataset_fingerprint=dataset_fingerprint
+        )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
+    _declare_metric_version(artifact, metric_version)
     write_artifact(output, artifact)
     typer.echo("Wrote promptfoo evaluation artifact to %s" % output)
+
+
+@import_app.command("ragas")
+def import_ragas(
+    source: Path,
+    output: Path = typer.Option(..., "--output", "-o"),
+    producer_version: str = typer.Option(..., "--producer-version"),
+    metrics: List[str] = typer.Option(..., "--metric", help="Score column; repeat for each metric"),
+    source_revision: Optional[str] = typer.Option(None, "--source-revision"),
+    dataset_fingerprint: Optional[str] = typer.Option(None, "--dataset-fingerprint"),
+    metric_version: Optional[str] = typer.Option(None, "--metric-version"),
+) -> None:
+    """Convert explicit Ragas to_pandas().to_json(orient='records') score columns."""
+    try:
+        artifact = load_ragas_export(
+            source, producer_version=producer_version, metrics=metrics,
+            source_revision=source_revision, dataset_fingerprint=dataset_fingerprint,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _declare_metric_version(artifact, metric_version)
+    write_artifact(output, artifact)
+    typer.echo("Wrote Ragas evaluation artifact to %s" % output)
+
+
+@import_app.command("deepeval")
+def import_deepeval(
+    source: Path,
+    output: Path = typer.Option(..., "--output", "-o"),
+    producer_version: str = typer.Option(..., "--producer-version"),
+    source_revision: Optional[str] = typer.Option(None, "--source-revision"),
+    dataset_fingerprint: Optional[str] = typer.Option(None, "--dataset-fingerprint"),
+    metric_version: Optional[str] = typer.Option(None, "--metric-version"),
+) -> None:
+    """Convert a verified DeepEval EvaluationResult JSON export with built-in metrics."""
+    try:
+        artifact = load_deepeval_export(
+            source, producer_version=producer_version,
+            source_revision=source_revision, dataset_fingerprint=dataset_fingerprint,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _declare_metric_version(artifact, metric_version)
+    write_artifact(output, artifact)
+    typer.echo("Wrote DeepEval evaluation artifact to %s" % output)
 
 
 def _require_rag_dependencies() -> None:
@@ -157,6 +222,9 @@ def gate(
     json_output: Optional[Path] = typer.Option(None, "--json", help="Write the gate report"),
     junit_output: Optional[Path] = typer.Option(None, "--junit", help="Write JUnit XML"),
     sarif_output: Optional[Path] = typer.Option(None, "--sarif", help="Write SARIF 2.1.0"),
+    markdown_output: Optional[Path] = typer.Option(
+        None, "--markdown", help="Write a readable CI summary with evidence digests"
+    ),
 ) -> None:
     """Enforce a portable evaluation policy and return a CI-safe exit code."""
 
@@ -175,6 +243,8 @@ def gate(
         write_report(junit_output, render_junit(report))
     if sarif_output:
         write_report(sarif_output, render_sarif(report))
+    if markdown_output:
+        write_report(markdown_output, render_markdown(report))
     if not report.passed:
         raise typer.Exit(code=1)
 
@@ -309,6 +379,7 @@ def check(
     write_report(report_dir / "evalforge-report.json", render_json(report))
     write_report(report_dir / "evalforge-junit.xml", render_junit(report))
     write_report(report_dir / "evalforge.sarif", render_sarif(report))
+    write_report(report_dir / "evalforge-summary.md", render_markdown(report))
     typer.echo(json.dumps(summary, indent=2))
     typer.echo(render_terminal(report))
     typer.echo("Reports: %s" % report_dir.resolve())

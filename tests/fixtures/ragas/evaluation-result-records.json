@@ -1,0 +1,24 @@
+[
+  {
+    "user_input":"must-not-leak: synthetic question one",
+    "retrieved_contexts":[
+      "must-not-leak: synthetic retrieved context one"
+    ],
+    "response":"must-not-leak: synthetic response one",
+    "reference":"must-not-leak: synthetic reference one",
+    "faithfulness":1.0,
+    "answer_relevancy":0.8,
+    "answer_correctness":0.6
+  },
+  {
+    "user_input":"must-not-leak: synthetic question two",
+    "retrieved_contexts":[
+      "must-not-leak: synthetic retrieved context two"
+    ],
+    "response":"must-not-leak: synthetic response two",
+    "reference":"must-not-leak: synthetic reference two",
+    "faithfulness":0.5,
+    "answer_relevancy":1.0,
+    "answer_correctness":0.4
+  }
+]

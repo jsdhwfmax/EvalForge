@@ -9,9 +9,9 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
 [![GitHub stars](https://img.shields.io/github/stars/jsdhwfmax/EvalForge?style=flat)](https://github.com/jsdhwfmax/EvalForge/stargazers)
 
-EvalForge turns AI evaluation results into reviewable release evidence. It includes a transparent RAG evaluator, a vendor-neutral JSON artifact, and policy-as-code gates that emit JSON, JUnit, and SARIF for existing CI systems.
+EvalForge turns AI evaluation results into reviewable release evidence. Import promptfoo, Ragas, or supported DeepEval results, enforce a versioned policy, and publish JSON, JUnit, SARIF, and Markdown reports in your existing CI system. The gate runs offline with two direct dependencies and no hosted account.
 
-> Status: v0.3.1 alpha. The gate and offline evaluator are usable today; artifact schema 1.0 is intentionally small while interoperability feedback is collected.
+> Status: v0.4.0 alpha. The gate and offline evaluator are usable today. Integrations have explicit, tested format boundaries; the project is still seeking independently verified downstream adoption.
 
 ## Why EvalForge?
 
@@ -27,14 +27,16 @@ EvalForge provides that missing, deliberately narrow interoperability layer. It 
 4. Apply explicit quality, security, latency, and cost thresholds.
 5. Emit a portable artifact plus JSON, JUnit, and SARIF reports; return a non-zero exit code on regression.
 
-Read the engineering narrative in the [case study](docs/CASE_STUDY.md) or use the [resume-ready project notes](docs/PORTFOLIO.md).
+Read the [CI cookbook](docs/CI_COOKBOOK.md) for a reproducible dataset-mismatch failure and a complete GitHub workflow, or the [case study](docs/CASE_STUDY.md) for the RAG evaluator's engineering trade-offs.
 
 | Capability | Included |
 |---|---|
 | Portable evidence | Versioned, evaluator-neutral JSON artifact and JSON Schemas |
-| Evaluator adapters | Explicit promptfoo JSON v3 import with sanitized aggregate evidence |
+| Evaluator adapters | promptfoo schema v3, Ragas selected score records, DeepEval 3.8.1 / 4.2.2 |
+| Comparable baselines | Opt-in matching of dataset, evaluator version, and metric-definition identity |
+| Audit evidence | Deterministic SHA-256 input/policy digests plus producer and source revision |
 | Policy gates | Absolute thresholds, baseline deltas, errors and advisory warnings |
-| CI reports | Stable exit codes plus JSON, JUnit XML, and SARIF 2.1.0 |
+| CI reports | Stable exit codes plus JSON, JUnit XML, SARIF 2.1.0, and Markdown job summaries |
 | GitHub integration | Reusable composite Action with no hosted EvalForge account |
 | Golden datasets | JSON import API, file upload, CLI, example dataset |
 | Retrieval | BM25, deterministic vector, hybrid; configurable Recall@K |
@@ -53,6 +55,14 @@ Read the engineering narrative in the [case study](docs/CASE_STUDY.md) or use th
 
 ### Quality gate (no server or model key)
 
+Install from PyPI:
+
+```bash
+pip install evalforge-ci
+```
+
+For the committed examples and source development:
+
 ```bash
 git clone https://github.com/jsdhwfmax/EvalForge.git
 cd EvalForge
@@ -65,7 +75,8 @@ evalforge gate examples/candidate_summary.json \
   --baseline examples/baseline_summary.json \
   --json build/evalforge-report.json \
   --junit build/evalforge-junit.xml \
-  --sarif build/evalforge.sarif
+  --sarif build/evalforge.sarif \
+  --markdown build/evalforge-summary.md
 ```
 
 The committed example passes required checks and reports one advisory answer-quality regression. Gate exit codes are `0` for pass, `1` for a failed/error check, and `2` for invalid input or policy configuration.
@@ -97,6 +108,48 @@ The adapter requires promptfoo results schema 3 and versioned producer
 metadata. It is verified against promptfoo 0.122.2; see the exact metric
 mapping and privacy boundary in the
 [interoperability specification](docs/INTEROPERABILITY.md#promptfoo-adapter).
+
+### Import Ragas or DeepEval evidence
+
+Export Ragas results with `result.to_pandas().to_json(..., orient="records")`.
+Choose score columns explicitly so sample content never becomes a metric:
+
+```bash
+evalforge import ragas tests/fixtures/ragas/evaluation-result-records.json \
+  --producer-version 0.2.12 --metric faithfulness --metric answer_relevancy \
+  --dataset-fingerprint synthetic-ragas-fixture-v1 \
+  --metric-version ragas-demo-rubric-v1 --output build/ragas.json
+evalforge gate build/ragas.json --policy examples/ragas_policy.json
+```
+
+DeepEval imports the JSON serialization of `EvaluationResult` using a verified
+producer version. Raw inputs, outputs, reasons, traces, and custom metric names
+are excluded from the portable artifact:
+
+```bash
+evalforge import deepeval tests/fixtures/deepeval/evaluation-result-4.2.2.json \
+  --producer-version 4.2.2 --output build/deepeval.json
+evalforge gate build/deepeval.json --policy examples/deepeval_policy.json
+```
+
+These fixtures contain synthetic scores and demonstrate interoperability, not
+model quality. Missing or errored selected evidence fails the import. DeepEval
+metrics whose meaning changed between v3 and v4 receive separate names, so
+opposite score directions cannot silently share a baseline. See the precise
+[Ragas](docs/integrations/ragas.md) and [DeepEval](docs/integrations/deepeval.md)
+contracts and their upstream fixture provenance.
+
+### Require comparable evidence
+
+A higher score on a different test set does not establish an improvement. Add
+the optional `comparison` policy object to require matching dataset fingerprints,
+producer name/version, or metric-definition versions. Imports accept
+`--dataset-fingerprint` and `--metric-version` for these explicit identities.
+Missing or mismatched required identity blocks the gate, even for warning checks.
+
+The [CI cookbook](docs/CI_COOKBOOK.md#reproduce-a-misleading-green-check) includes
+passing and blocked examples, migration guidance, and the digest specification.
+Existing policies retain their behavior unless these comparison options are enabled.
 
 ### Docker (recommended)
 
@@ -150,14 +203,14 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.3.1
+- uses: jsdhwfmax/EvalForge@v0.4.0
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json
     policy: evalforge-policy.json
 ```
 
-The Action writes `evalforge-report.json`, `evalforge-junit.xml`, and `evalforge.sarif` by default. Upload them with the standard reporting actions already used by your repository. Pin a full commit SHA where your supply-chain policy requires immutable Actions.
+The Action writes `evalforge-report.json`, `evalforge-junit.xml`, `evalforge.sarif`, and `evalforge-summary.md`. It appends the summary to the GitHub job page even when the gate blocks a release. Use `if: always()` when uploading reports; the [complete workflow](docs/CI_COOKBOOK.md#keep-reports-when-the-gate-fails) shows how. Pin a full commit SHA where your supply-chain policy requires immutable Actions.
 
 Using EvalForge in another public repository? Please open an issue or pull request to add it to [ADOPTERS.md](ADOPTERS.md). Projects are listed only with a maintainer's consent and a public, verifiable integration link.
 
@@ -334,7 +387,7 @@ make lint
 make test
 ```
 
-The 54-test suite covers portable artifacts, policy behavior, all three CI report formats, CLI exit codes, retrieval ranking, metrics, security grading, persistence, API validation, dataset fingerprints, baseline comparisons, promptfoo interoperability, release-workflow invariants, and complete multi-configuration experiments. Current measured branch-aware coverage is 86.66%.
+The test suite covers portable artifacts, strict comparison identities, digest stability, four CI report formats, CLI exit codes, three evaluator adapters, retrieval, metrics, security grading, persistence, and complete multi-configuration experiments. CI enforces at least 85% branch-aware coverage; see the linked CI run for the current measured result.
 
 CI runs on Python 3.9 and 3.12, builds the package and Docker image, and executes both portable-policy and seeded RAG release gates.
 

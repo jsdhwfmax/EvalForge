@@ -57,6 +57,41 @@ jobs:
           python -m json.tool artifacts/promptfoo.sarif >/dev/null
           python -c "from xml.etree import ElementTree; ElementTree.parse('artifacts/evalforge-junit.xml')"
           python -c "from xml.etree import ElementTree; ElementTree.parse('artifacts/promptfoo-junit.xml')"
+      - name: Exercise Ragas and DeepEval imports without evaluator dependencies
+        if: matrix.python-version == '3.12'
+        run: |
+          evalforge import ragas tests/fixtures/ragas/evaluation-result-records.json \
+            --producer-version 0.2.12 --metric faithfulness --metric answer_relevancy \
+            --source-revision "$GITHUB_SHA" --output artifacts/ragas-artifact.json
+          evalforge gate artifacts/ragas-artifact.json --policy examples/ragas_policy.json \
+            --json artifacts/ragas-report.json --markdown artifacts/ragas-summary.md
+          evalforge import deepeval tests/fixtures/deepeval/evaluation-result-4.2.2.json \
+            --producer-version 4.2.2 --source-revision "$GITHUB_SHA" \
+            --output artifacts/deepeval-artifact.json
+          evalforge gate artifacts/deepeval-artifact.json --policy examples/deepeval_policy.json \
+            --json artifacts/deepeval-report.json --markdown artifacts/deepeval-summary.md
+      - name: Demonstrate dataset-mismatch blocking
+        if: matrix.python-version == '3.12'
+        run: |
+          evalforge gate examples/strict-comparison/candidate.json \
+            --baseline examples/strict-comparison/baseline.json \
+            --policy examples/strict-comparison/policy.json
+          gate_status=0
+          evalforge gate examples/strict-comparison/changed-dataset.json \
+            --baseline examples/strict-comparison/baseline.json \
+            --policy examples/strict-comparison/policy.json \
+            --json artifacts/blocked-report.json \
+            --markdown artifacts/blocked-summary.md || gate_status=$?
+          test "$gate_status" -eq 1
+          python -c "import json; p=json.load(open('artifacts/blocked-report.json')); assert not p['passed']; assert all(c['outcome']=='error' for c in p['checks'])"
+      - name: Preserve evaluation evidence
+        if: always() && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evaluation-evidence
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Build and check distributions
         if: matrix.python-version == '3.12'
         run: make release-check
@@ -71,6 +106,11 @@ jobs:
             --json "$RUNNER_TEMP/evalforge-wheel/report.json" \
             --junit "$RUNNER_TEMP/evalforge-wheel/junit.xml" \
             --sarif "$RUNNER_TEMP/evalforge-wheel/report.sarif"
+          "$RUNNER_TEMP/evalforge-wheel/bin/python" -c "import importlib.util; assert all(importlib.util.find_spec(p) is None for p in ('ragas', 'deepeval', 'sqlalchemy', 'streamlit'))"
+          "$RUNNER_TEMP/evalforge-wheel/bin/evalforge" import ragas tests/fixtures/ragas/evaluation-result-records.json \
+            --producer-version 0.2.12 --metric faithfulness --output "$RUNNER_TEMP/evalforge-wheel/ragas.json"
+          "$RUNNER_TEMP/evalforge-wheel/bin/evalforge" import deepeval tests/fixtures/deepeval/evaluation-result-4.2.2.json \
+            --producer-version 4.2.2 --output "$RUNNER_TEMP/evalforge-wheel/deepeval.json"
 
   docker:
     runs-on: ubuntu-latest

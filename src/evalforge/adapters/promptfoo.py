@@ -60,7 +60,8 @@ def _optional_metric(
 
 
 def promptfoo_artifact_from_export(
-    payload: Dict[str, Any], *, source_revision: Optional[str] = None
+    payload: Dict[str, Any], *, source_revision: Optional[str] = None,
+    dataset_fingerprint: Optional[str] = None,
 ) -> EvaluationArtifact:
     """Convert a promptfoo OutputFile with EvaluateSummaryV3 into aggregate evidence.
 
@@ -172,6 +173,10 @@ def promptfoo_artifact_from_export(
         "source_schema_version": PROMPTFOO_SCHEMA_VERSION,
         "source_timestamp": source_timestamp,
     }
+    if dataset_fingerprint is not None:
+        sanitized_metadata["dataset_fingerprint"] = _nonempty_string(
+            dataset_fingerprint, "dataset_fingerprint"
+        )
     if metadata.get("exportedAt") is not None:
         sanitized_metadata["source_exported_at"] = _nonempty_string(
             metadata["exportedAt"], "metadata.exportedAt"
@@ -188,7 +193,8 @@ def promptfoo_artifact_from_export(
 
 
 def load_promptfoo_export(
-    path: Path, *, source_revision: Optional[str] = None
+    path: Path, *, source_revision: Optional[str] = None,
+    dataset_fingerprint: Optional[str] = None,
 ) -> EvaluationArtifact:
     """Read and convert a promptfoo JSON export from disk."""
 
@@ -198,4 +204,6 @@ def load_promptfoo_export(
         raise ValueError("Could not read promptfoo export %s: %s" % (path, exc)) from exc
     except json.JSONDecodeError as exc:
         raise ValueError("promptfoo export %s is not valid JSON: %s" % (path, exc)) from exc
-    return promptfoo_artifact_from_export(payload, source_revision=source_revision)
+    return promptfoo_artifact_from_export(
+        payload, source_revision=source_revision, dataset_fingerprint=dataset_fingerprint
+    )

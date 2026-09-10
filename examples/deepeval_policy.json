@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsdhwfmax/EvalForge/main/schemas/gate-policy-v1.schema.json",
+  "version": 1,
+  "name": "DeepEval 4.2.2 example release gate",
+  "checks": [
+    {
+      "id": "deepeval-sample-count",
+      "metric": "test_cases",
+      "op": "gte",
+      "value": 3,
+      "description": "Require at least three complete test results in this example"
+    },
+    {
+      "id": "deepeval-pass-rate",
+      "metric": "deepeval_pass_rate",
+      "op": "gte",
+      "value": 0.6,
+      "description": "At least 60% of test results must pass every metric"
+    },
+    {
+      "id": "deepeval-answer-relevancy",
+      "metric": "deepeval_answer_relevancy",
+      "op": "gte",
+      "value": 0.7,
+      "description": "Mean DeepEval Answer Relevancy must be at least 0.7"
+    },
+    {
+      "id": "deepeval-context-alignment",
+      "metric": "deepeval_v4_hallucination",
+      "op": "gte",
+      "value": 0.6,
+      "description": "DeepEval 4 Hallucination is higher-is-better context alignment"
+    }
+  ]
+}

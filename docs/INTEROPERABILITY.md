@@ -68,6 +68,14 @@ mapping before treating a custom named score as stable release evidence.
 
 ## Gate policy v1
 
+Ragas and DeepEval use separate opt-in commands; their exact mappings,
+supported formats, and fixture provenance are documented in the
+[Ragas integration](integrations/ragas.md) and
+[DeepEval integration](integrations/deepeval.md). All import commands accept
+`--dataset-fingerprint` and `--metric-version`. The latter must identify the
+actual metric/judge configuration; an adapter mapping version alone does not
+describe the measurement's semantics.
+
 The normative schema is [`schemas/gate-policy-v1.schema.json`](../schemas/gate-policy-v1.schema.json).
 
 Each check names a metric, comparison, threshold, and severity:
@@ -83,11 +91,25 @@ Evidence values and policy thresholds must be finite numbers. `NaN`, positive in
 
 For baseline-delta checks, the candidate and baseline must declare the same unit and metric direction. EvalForge fails the check as a configuration error rather than subtracting values with incompatible semantics.
 
+The optional `comparison` object can enable `require_same_dataset`,
+`require_same_producer`, and `require_same_metric_version` (all default false).
+These require a baseline and matching non-empty identity declarations, and
+apply to every check in the policy. See the [CI cookbook](CI_COOKBOOK.md) for
+precise semantics and a reproducible failure case. Finite inputs whose delta
+overflows also produce an error. Canonical numeric fields reject booleans and
+numeric strings, matching the published JSON Schemas.
+
 ## Reports
 
 - JSON preserves every evaluated value and message for automation.
 - JUnit represents each policy check as a test case for test-report viewers.
 - SARIF represents failed and warning checks as static-analysis results for code scanning interfaces.
+- Markdown provides a job summary with values, failures, source revisions, and input digests.
+
+Every report includes the same evidence identity and normalized-input SHA-256
+digests. The [digest contract](CI_COOKBOOK.md#audit-a-decision) specifies
+canonicalization and its limits. Reports omit arbitrary artifact metadata;
+producer/run fields and valid string identities are intentionally retained.
 
 SARIF results are run-level findings and intentionally omit a fabricated source location. Consumers should link the report to the evaluation artifact and source revision.
 

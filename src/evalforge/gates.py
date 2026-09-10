@@ -1,6 +1,9 @@
 """Policy-as-code gates and CI report renderers for evaluation artifacts."""
 
+import hashlib
+import html
 import json
+import math
 import operator
 from collections import Counter
 from pathlib import Path
@@ -20,9 +23,19 @@ class GateCheck(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
     metric: str = Field(min_length=1)
     op: GateOperator
-    value: float
+    value: float = Field(strict=True)
     severity: Literal["error", "warning"] = "error"
     description: str = ""
+
+
+class ComparisonPolicy(BaseModel):
+    """Opt-in evidence identity requirements, including absolute-only policies."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    require_same_dataset: bool = False
+    require_same_producer: bool = False
+    require_same_metric_version: bool = False
 
 
 class GatePolicy(BaseModel):
@@ -32,6 +45,7 @@ class GatePolicy(BaseModel):
     version: Literal[1] = 1
     name: str = Field(default="EvalForge quality policy", min_length=1)
     checks: List[GateCheck] = Field(min_length=1)
+    comparison: ComparisonPolicy = Field(default_factory=ComparisonPolicy)
 
     @model_validator(mode="after")
     def check_ids_are_unique(self) -> "GatePolicy":
@@ -66,6 +80,7 @@ class GateReport(BaseModel):
     baseline_run_id: Optional[str] = None
     passed: bool
     checks: List[CheckResult]
+    evidence: Dict[str, Any] = Field(default_factory=dict)
 
 
 COMPARATORS: Dict[str, Callable[[float, float], bool]] = {
@@ -108,13 +123,75 @@ def _error_result(check: GateCheck, message: str) -> CheckResult:
     )
 
 
+def _digest(payload: Dict[str, Any]) -> str:
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _artifact_evidence(artifact: EvaluationArtifact) -> Dict[str, Any]:
+    payload = artifact.model_dump(mode="json", by_alias=True, exclude_none=True)
+    identities = {
+        key: value if isinstance(value, str) and value.strip() else None
+        for key in ("dataset_fingerprint", "metric_version")
+        for value in (artifact.metadata.get(key),)
+    }
+    return {
+        "sha256": _digest(payload),
+        "producer": artifact.producer.model_dump(),
+        "run": artifact.run.model_dump(exclude_none=True),
+        **identities,
+    }
+
+
+def _comparison_error(
+    policy: ComparisonPolicy,
+    candidate: EvaluationArtifact,
+    baseline: Optional[EvaluationArtifact],
+) -> Optional[str]:
+    if not any(policy.model_dump().values()):
+        return None
+    if baseline is None:
+        return "Comparison policy requires a baseline artifact"
+    identities = []
+    if policy.require_same_dataset:
+        identities.append("dataset_fingerprint")
+    if policy.require_same_metric_version:
+        identities.append("metric_version")
+    for key in identities:
+        candidate_value = candidate.metadata.get(key)
+        baseline_value = baseline.metadata.get(key)
+        if not all(isinstance(value, str) and value.strip() for value in (
+            candidate_value, baseline_value
+        )):
+            return "Comparison requires a non-empty %s in both artifacts" % key
+        if candidate_value != baseline_value:
+            return "Comparison %s does not match" % key
+    if policy.require_same_producer:
+        for artifact in (candidate, baseline):
+            if (
+                not artifact.producer.name.strip()
+                or not artifact.producer.version.strip()
+                or artifact.producer.version.strip().lower() == "unknown"
+            ):
+                return "Comparison requires a known producer version in both artifacts"
+        if candidate.producer != baseline.producer:
+            return "Comparison producer name or version does not match"
+    return None
+
+
 def evaluate_gate(
     policy: GatePolicy,
     candidate: EvaluationArtifact,
     baseline: Optional[EvaluationArtifact] = None,
 ) -> GateReport:
     results: List[CheckResult] = []
+    comparison_error = _comparison_error(policy.comparison, candidate, baseline)
     for check in policy.checks:
+        if comparison_error:
+            results.append(_error_result(check, comparison_error))
+            continue
         candidate_metric = candidate.metrics.get(check.metric)
         if candidate_metric is None:
             results.append(_error_result(check, "Candidate metric is missing: %s" % check.metric))
@@ -159,6 +236,11 @@ def evaluate_gate(
                 continue
             baseline_value = baseline_metric.value
             observed = actual - baseline_value
+            if not math.isfinite(observed):
+                results.append(
+                    _error_result(check, "Metric delta is not finite: %s" % check.metric)
+                )
+                continue
 
         passed = COMPARATORS[check.op](observed, check.value)
         outcome: Literal["pass", "fail", "warn", "error"]
@@ -198,6 +280,12 @@ def evaluate_gate(
         baseline_run_id=baseline.run.id if baseline else None,
         passed=gate_passed,
         checks=results,
+        evidence={
+            "digest_format": "evalforge.canonical-json.v1",
+            "policy_sha256": _digest(policy.model_dump(mode="json", by_alias=True)),
+            "candidate": _artifact_evidence(candidate),
+            "baseline": _artifact_evidence(baseline) if baseline else None,
+        },
     )
 
 
@@ -212,6 +300,51 @@ def render_terminal(report: GateReport) -> str:
 def render_json(report: GateReport) -> str:
     payload = report.model_dump(mode="json", exclude_none=True)
     return json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n"
+
+
+def _markdown_text(value: Any) -> str:
+    text = html.escape(str(value), quote=True)
+    for char in ("\\", "`", "*", "_", "[", "]"):
+        text = text.replace(char, "\\" + char)
+    return text.replace("|", "&#124;").replace("\r", " ").replace("\n", " ")
+
+
+def render_markdown(report: GateReport) -> str:
+    """A self-contained CI summary; input text never becomes HTML or table syntax."""
+    lines = [
+        "## EvalForge gate: %s" % ("PASS" if report.passed else "FAIL"),
+        "", "Policy: %s" % _markdown_text(report.policy_name), "",
+        "| Check | Result | Candidate | Baseline | Observed | Requirement |",
+        "| --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    for check in report.checks:
+        numbers = ["—" if value is None else "%.6g" % value for value in (
+            check.actual, check.baseline, check.observed
+        )]
+        lines.append("| %s | %s | %s | %s | %s | %s %.6g |" % (
+            _markdown_text(check.id), check.outcome.upper(), numbers[0], numbers[1], numbers[2],
+            _markdown_text(OPERATOR_LABELS[check.op]), check.expected,
+        ))
+    for check in report.checks:
+        if check.outcome != "pass":
+            lines.extend(["", "- **%s**: %s" % (
+                _markdown_text(check.id), _markdown_text(check.message)
+            )])
+    if report.evidence:
+        lines.extend(["", "### Evidence", ""])
+        for label in ("candidate", "baseline"):
+            evidence = report.evidence.get(label)
+            if not evidence:
+                continue
+            producer = evidence["producer"]
+            lines.append("- %s: %s %s; revision %s; SHA-256 `%s`" % (
+                label.capitalize(), _markdown_text(producer["name"]),
+                _markdown_text(producer["version"]),
+                _markdown_text(evidence["run"].get("source_revision", "unspecified")),
+                evidence["sha256"],
+            ))
+        lines.append("- Policy SHA-256: `%s`" % report.evidence["policy_sha256"])
+    return "\n".join(lines) + "\n"
 
 
 def render_junit(report: GateReport) -> str:
@@ -229,6 +362,10 @@ def render_junit(report: GateReport) -> str:
     )
     properties = ElementTree.SubElement(suite, "properties")
     ElementTree.SubElement(properties, "property", {"name": "policy", "value": report.policy_name})
+    if report.evidence:
+        ElementTree.SubElement(properties, "property", {
+            "name": "evalforge.evidence", "value": json.dumps(report.evidence, allow_nan=False)
+        })
     for result in report.checks:
         case = ElementTree.SubElement(
             suite,
@@ -294,6 +431,7 @@ def render_sarif(report: GateReport) -> str:
                     {"executionSuccessful": True, "exitCode": 0 if report.passed else 1}
                 ],
                 "results": results,
+                "properties": {"evalforgeEvidence": report.evidence},
             }
         ],
     }

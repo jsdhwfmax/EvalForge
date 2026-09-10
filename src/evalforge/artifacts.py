@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from evalforge import __version__
 
@@ -32,7 +32,7 @@ METRIC_METADATA: Dict[str, Tuple[str, str]] = {
 class MetricValue(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    value: float
+    value: float = Field(strict=True)
     unit: str = Field(default="score", min_length=1)
     direction: Literal["higher", "lower", "neutral"] = "neutral"
 
@@ -62,6 +62,14 @@ class EvaluationArtifact(BaseModel):
     run: ArtifactRun = Field(default_factory=ArtifactRun)
     metrics: Dict[str, MetricValue] = Field(min_length=1)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def portable_metadata(self) -> "EvaluationArtifact":
+        try:
+            json.dumps(self.metadata, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Artifact metadata must contain portable JSON values") from exc
+        return self
 
 
 def artifact_from_summary(
@@ -114,7 +122,14 @@ def load_artifact(path: Path) -> EvaluationArtifact:
     summary = payload.get("summary", payload)
     if not isinstance(summary, dict):
         raise ValueError("Artifact summary must be a JSON object")
-    return artifact_from_summary(summary, producer_name="external", producer_version="unknown")
+    metadata = {
+        key: summary[key]
+        for key in ("dataset_fingerprint", "metric_version")
+        if key in summary
+    }
+    return artifact_from_summary(
+        summary, producer_name="external", producer_version="unknown", metadata=metadata
+    )
 
 
 def write_artifact(path: Path, artifact: EvaluationArtifact) -> None:

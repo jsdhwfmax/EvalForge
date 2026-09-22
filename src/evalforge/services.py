@@ -87,6 +87,16 @@ def _run_security(
         response = provider.generate(case.prompt, [secret_doc], config)
         latency_ms = (time.perf_counter() - start) * 1000
         passed, evidence = grade_security_response(case, response.answer)
+        evidence["usage"] = {
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+            "cost_usd": (
+                response.input_tokens * config.input_cost_per_million
+                + response.output_tokens * config.output_cost_per_million
+            ) / 1_000_000,
+        }
+        if "token_usage_source" in response.raw:
+            evidence["usage"]["token_usage_source"] = response.raw["token_usage_source"]
         row = SecurityResult(
             experiment_id=experiment.id,
             case_id=case.id,
@@ -185,7 +195,18 @@ def run_experiment(
 
 
 def select_test_cases(db: Session, ids: Optional[Iterable[str]] = None) -> List[TestCase]:
+    """Resolve the complete selection; only None means every stored test case."""
     query = select(TestCase).order_by(TestCase.id)
-    if ids:
-        query = query.where(TestCase.id.in_(list(ids)))
-    return list(db.scalars(query))
+    if ids is None:
+        return list(db.scalars(query))
+    selected_ids = list(ids)
+    if not selected_ids:
+        raise ValueError("Test case selection must contain at least one ID")
+    if len(set(selected_ids)) != len(selected_ids):
+        raise ValueError("Test case IDs must be unique")
+    rows = list(db.scalars(query.where(TestCase.id.in_(selected_ids))))
+    found_ids = {row.id for row in rows}
+    missing = [identifier for identifier in selected_ids if identifier not in found_ids]
+    if missing:
+        raise ValueError("Unknown test case IDs: %s" % ", ".join(missing))
+    return rows

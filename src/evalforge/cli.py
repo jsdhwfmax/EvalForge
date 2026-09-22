@@ -35,6 +35,26 @@ import_app = typer.Typer(help="Convert an explicit evaluator format to EvalForge
 app.add_typer(import_app, name="import")
 
 
+def _validate_report_paths(inputs: List[Path], outputs: List[Optional[Path]]) -> None:
+    """Reject report aliases before a report can replace evidence or another format."""
+    selected = [path for path in outputs if path is not None]
+    for index, output in enumerate(selected):
+        if output.is_dir():
+            raise typer.BadParameter("Report output is a directory: %s" % output)
+        if any(parent.exists() and not parent.is_dir() for parent in output.parents):
+            raise typer.BadParameter("Report parent is not a directory: %s" % output)
+        for other in inputs + selected[:index]:
+            if output.resolve() == other.resolve() or (
+                output.exists() and other.exists() and output.samefile(other)
+            ) or (
+                output.resolve() in other.resolve().parents
+                or other.resolve() in output.resolve().parents
+            ):
+                raise typer.BadParameter(
+                    "Report paths must be distinct from inputs and each other: %s" % output
+                )
+
+
 def _declare_metric_version(artifact: EvaluationArtifact, value: Optional[str]) -> None:
     if value is not None:
         if not value.strip():
@@ -200,7 +220,14 @@ def run(
         config = db.get(RagConfig, config_id)
         if not config:
             raise typer.BadParameter("Unknown config ID: %s" % config_id)
-        test_cases = select_test_cases(db, [test_case_id] if test_case_id else None)
+        try:
+            test_cases = select_test_cases(
+                db, [test_case_id] if test_case_id is not None else None
+            )
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        if not test_cases:
+            raise typer.BadParameter("No test cases are stored")
         experiment = run_experiment(db, name, config, test_cases, include_security=True)
         typer.echo(json.dumps(experiment.summary, indent=2))
         if output:
@@ -208,7 +235,13 @@ def run(
                 experiment.summary,
                 run_id=experiment.id,
                 source_revision=os.getenv("GITHUB_SHA"),
-                metadata={"experiment_name": experiment.name, "config_id": config_id},
+                metadata={
+                    "experiment_name": experiment.name,
+                    "config_id": config_id,
+                    "dataset_fingerprint": experiment.summary.get("dataset_fingerprint"),
+                    "config_snapshot": experiment.summary.get("config_snapshot"),
+                    "metric_version": experiment.summary.get("metric_version"),
+                },
             )
             write_artifact(output, artifact)
             typer.echo("Wrote evaluation artifact to %s" % output)
@@ -228,6 +261,10 @@ def gate(
 ) -> None:
     """Enforce a portable evaluation policy and return a CI-safe exit code."""
 
+    _validate_report_paths(
+        [candidate, policy] + ([baseline] if baseline is not None else []),
+        [json_output, junit_output, sarif_output, markdown_output],
+    )
     try:
         candidate_artifact = load_artifact(candidate)
         baseline_artifact = load_artifact(baseline) if baseline else None
@@ -301,6 +338,8 @@ def gate_experiment(
         experiment = db.get(Experiment, experiment_id)
         if not experiment:
             raise typer.BadParameter("Unknown experiment ID: %s" % experiment_id)
+        if experiment.status != "completed":
+            raise typer.BadParameter("Experiment must be completed")
         result = evaluate_quality_gate(experiment.summary, thresholds.model_dump())
     typer.echo(json.dumps({"experiment_id": experiment_id, **result}, indent=2))
     if not result["passed"]:

@@ -72,7 +72,7 @@ class RagConfigRead(RagConfigCreate, ORMModel):
 class ExperimentRun(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     config_ids: List[str] = Field(min_length=1)
-    test_case_ids: Optional[List[str]] = None
+    test_case_ids: Optional[List[str]] = Field(default=None, min_length=1)
     include_security: bool = True
 
 

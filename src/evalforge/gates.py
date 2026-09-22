@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional
 from xml.etree import ElementTree
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from evalforge.artifacts import EvaluationArtifact
+from evalforge.json_input import load_json
 
 GateOperator = Literal["gte", "lte", "delta_gte", "delta_lte"]
 
@@ -26,6 +27,15 @@ class GateCheck(BaseModel):
     value: float = Field(strict=True)
     severity: Literal["error", "warning"] = "error"
     description: str = ""
+    unit: Optional[str] = Field(default=None, min_length=1)
+    direction: Optional[Literal["higher", "lower", "neutral"]] = None
+
+    @field_validator("unit")
+    @classmethod
+    def unit_is_not_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not value.strip():
+            raise ValueError("Metric unit must be a non-empty string")
+        return value
 
 
 class ComparisonPolicy(BaseModel):
@@ -99,12 +109,7 @@ OPERATOR_LABELS = {
 
 
 def load_policy(path: Path) -> GatePolicy:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError("Could not read policy %s: %s" % (path, exc)) from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError("Policy %s is not valid JSON: %s" % (path, exc)) from exc
+    payload = load_json(path, label="Policy")
     try:
         return GatePolicy.model_validate(payload)
     except ValidationError as exc:
@@ -195,6 +200,20 @@ def evaluate_gate(
         candidate_metric = candidate.metrics.get(check.metric)
         if candidate_metric is None:
             results.append(_error_result(check, "Candidate metric is missing: %s" % check.metric))
+            continue
+        if check.unit is not None and candidate_metric.unit != check.unit:
+            results.append(_error_result(
+                check,
+                "Candidate metric unit does not match policy for %s: expected=%s, actual=%s"
+                % (check.metric, check.unit, candidate_metric.unit),
+            ))
+            continue
+        if check.direction is not None and candidate_metric.direction != check.direction:
+            results.append(_error_result(
+                check,
+                "Candidate metric direction does not match policy for %s: expected=%s, actual=%s"
+                % (check.metric, check.direction, candidate_metric.direction),
+            ))
             continue
 
         actual = candidate_metric.value
@@ -347,6 +366,19 @@ def render_markdown(report: GateReport) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _xml_text(value: str) -> str:
+    """Replace characters XML 1.0 cannot represent, preserving ordinary Unicode."""
+    return "".join(
+        char if (
+            char in "\t\n\r"
+            or 0x20 <= ord(char) <= 0xD7FF
+            or 0xE000 <= ord(char) <= 0xFFFD
+            or 0x10000 <= ord(char) <= 0x10FFFF
+        ) else "\ufffd"
+        for char in value
+    )
+
+
 def render_junit(report: GateReport) -> str:
     failures = sum(result.outcome == "fail" for result in report.checks)
     errors = sum(result.outcome == "error" for result in report.checks)
@@ -361,7 +393,9 @@ def render_junit(report: GateReport) -> str:
         },
     )
     properties = ElementTree.SubElement(suite, "properties")
-    ElementTree.SubElement(properties, "property", {"name": "policy", "value": report.policy_name})
+    ElementTree.SubElement(properties, "property", {
+        "name": "policy", "value": _xml_text(report.policy_name)
+    })
     if report.evidence:
         ElementTree.SubElement(properties, "property", {
             "name": "evalforge.evidence", "value": json.dumps(report.evidence, allow_nan=False)
@@ -370,17 +404,18 @@ def render_junit(report: GateReport) -> str:
         case = ElementTree.SubElement(
             suite,
             "testcase",
-            {"classname": "evalforge.gate", "name": result.id},
+            {"classname": "evalforge.gate", "name": _xml_text(result.id)},
         )
+        message = _xml_text(result.message)
         if result.outcome == "fail":
-            failure = ElementTree.SubElement(case, "failure", {"message": result.message})
-            failure.text = result.message
+            failure = ElementTree.SubElement(case, "failure", {"message": message})
+            failure.text = message
         elif result.outcome == "error":
-            error = ElementTree.SubElement(case, "error", {"message": result.message})
-            error.text = result.message
+            error = ElementTree.SubElement(case, "error", {"message": message})
+            error.text = message
         elif result.outcome == "warn":
             output = ElementTree.SubElement(case, "system-out")
-            output.text = "warning: %s" % result.message
+            output.text = "warning: %s" % message
     ElementTree.indent(suite, space="  ")
     return ElementTree.tostring(suite, encoding="unicode", xml_declaration=True) + "\n"
 

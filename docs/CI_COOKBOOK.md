@@ -46,6 +46,30 @@ These are producer declarations: EvalForge cannot verify that an evaluator
 truthfully labeled the data or that two judge executions are scientifically
 equivalent. Reset a baseline deliberately when its measurement definition changes.
 
+## Declare the threshold's unit
+
+Numeric thresholds alone cannot distinguish seconds from milliseconds or a
+percentage from a ratio. The committed `examples/metric-contract/` files show
+a 500 ms budget with an explicit metric contract:
+
+```json
+{"id": "latency-budget", "metric": "latency", "op": "lte", "value": 500,
+ "unit": "ms", "direction": "lower"}
+```
+
+```bash
+evalforge gate examples/metric-contract/candidate.json \
+  --policy examples/metric-contract/policy.json
+# Exit 0: 420 ms fits the 500 ms budget.
+evalforge gate examples/metric-contract/wrong-unit.json \
+  --policy examples/metric-contract/policy.json
+# Exit 1: 2 seconds does not match the required ms unit.
+```
+
+Canonical artifacts carry explicit units. Unknown flat-summary metrics have
+unit `score` and direction `neutral`; use a canonical artifact when you need a
+different contract. Neither field converts values or infers scientific meaning.
+
 ## Keep reports when the gate fails
 
 This complete workflow assumes your repository commits a trusted baseline and
@@ -65,7 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run your evaluator
         run: python scripts/evaluate.py --output build/candidate.json
-      - uses: jsdhwfmax/EvalForge@v0.4.0
+      - uses: jsdhwfmax/EvalForge@v0.5.0
         id: evalforge
         with:
           candidate: build/candidate.json
@@ -87,9 +111,15 @@ jobs:
 The Action preserves the CLI failure exit code and appends the Markdown report
 to the GitHub job summary for both passing and blocked gates. Set `job-summary:
 "false"` to disable the summary. `steps.evalforge.outputs.exit-code` exposes the
-gate status for later steps using `if: always()`. Exit 2 means invalid input;
-no evaluation report is promised in that case. Pin EvalForge's full release
+gate status for later steps using `if: always()`. The Action validates final
+report destinations, clears old reports, and stages all four current reports
+before publishing them. Exit 2 means invalid input; no stale passing reports
+are retained after valid destination preflight. A destination that aliases an
+input or another output is rejected before any files are changed. Pin EvalForge's full release
 commit SHA when adopting it in a production workflow.
+
+For repeated direct CLI invocations, use a fresh report directory per run;
+invalid input does not replace reports from an earlier CLI invocation.
 
 ## Audit a decision
 

@@ -85,9 +85,21 @@ Each check names a metric, comparison, threshold, and severity:
 - `error` failures block the gate.
 - `warning` failures remain visible without blocking the gate.
 
+Since EvalForge 0.5, a check can also declare `unit` and `direction`. They
+require an exact match with the candidate's metric metadata before comparing
+numbers. For example, a 500 ms latency budget should use `"unit": "ms"` and
+`"direction": "lower"`. A value of `2` declared in seconds is an error, not a
+passing 2 ms result. There is no automatic unit conversion. These fields are
+optional; omission or `null` preserves existing policy behavior. A mismatch
+always blocks, including a check whose severity is `warning`.
+
 Missing candidate metrics, missing baseline metrics, and delta checks without a baseline are configuration errors and always fail. EvalForge does not silently skip a release requirement.
 
 Evidence values and policy thresholds must be finite numbers. `NaN`, positive infinity, and negative infinity are rejected because they are not portable JSON numbers and can make comparisons misleading. Policy check IDs must be unique so JUnit test cases and SARIF rules remain unambiguous.
+
+Artifact and policy JSON files reject duplicate object keys at every nesting
+level, even in metadata. A later value cannot silently replace an earlier
+score or threshold. Invalid input returns CLI exit 2.
 
 For baseline-delta checks, the candidate and baseline must declare the same unit and metric direction. EvalForge fails the check as a configuration error rather than subtracting values with incompatible semantics.
 
@@ -112,6 +124,11 @@ canonicalization and its limits. Reports omit arbitrary artifact metadata;
 producer/run fields and valid string identities are intentionally retained.
 
 SARIF results are run-level findings and intentionally omit a fabricated source location. Consumers should link the report to the evaluation artifact and source revision.
+
+JUnit replaces characters that XML 1.0 cannot represent with U+FFFD so JSON
+strings containing control characters cannot break the XML report. JSON
+retains the original text. Report output paths must be distinct from the
+candidate, baseline, policy, and each other, including filesystem aliases.
 
 ## Compatibility rules
 

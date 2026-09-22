@@ -7,6 +7,7 @@ from typing import Any, Dict, Literal, Optional, Tuple
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from evalforge import __version__
+from evalforge.json_input import load_json
 
 SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
@@ -90,7 +91,11 @@ def artifact_from_summary(
         if not isinstance(raw_value, (int, float)):
             continue
         unit, direction = METRIC_METADATA.get(name, ("score", "neutral"))
-        values[name] = MetricValue(value=float(raw_value), unit=unit, direction=direction)
+        try:
+            numeric_value = float(raw_value)
+        except OverflowError as exc:
+            raise ValueError("Evaluation summary metrics must be finite numbers") from exc
+        values[name] = MetricValue(value=numeric_value, unit=unit, direction=direction)
     if not values:
         raise ValueError("Evaluation summary does not contain any numeric metrics")
     return EvaluationArtifact(
@@ -104,12 +109,7 @@ def artifact_from_summary(
 def load_artifact(path: Path) -> EvaluationArtifact:
     """Load a canonical artifact, a flat metric object, or an API summary envelope."""
 
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError("Could not read artifact %s: %s" % (path, exc)) from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError("Artifact %s is not valid JSON: %s" % (path, exc)) from exc
+    payload = load_json(path, label="Artifact")
     if not isinstance(payload, dict):
         raise ValueError("Artifact root must be a JSON object")
 

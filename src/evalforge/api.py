@@ -145,7 +145,10 @@ def _load_experiment(db: Session, experiment_id: str):
 
 @app.post("/api/v1/experiments/run", response_model=ExperimentBatchRead)
 def run_batch(payload: ExperimentRun, db: Session = Depends(get_db)):
-    test_cases = select_test_cases(db, payload.test_case_ids)
+    try:
+        test_cases = select_test_cases(db, payload.test_case_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not test_cases:
         raise HTTPException(status_code=400, detail="No test cases selected")
     resolved_configs = [db.get(RagConfig, config_id) for config_id in payload.config_ids]

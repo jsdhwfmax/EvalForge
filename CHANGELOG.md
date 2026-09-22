@@ -2,6 +2,31 @@
 
 All notable changes are documented here. The project follows semantic versioning while the artifact and policy formats carry independent schema versions.
 
+## [0.5.0] - 2026-09-22
+
+### Added
+
+- Optional per-check unit and direction contracts reject incompatible measurements before threshold evaluation, including advisory checks and consistently wrong baseline/candidate units.
+- A runnable seconds-versus-milliseconds example and regression coverage for malformed inputs, output aliases, complete test selection, and total-call budgets.
+
+### Fixed
+
+- Reject duplicate JSON object keys, non-finite numbers, invalid UTF-8, and unpaired Unicode surrogates in artifact, policy, and promptfoo input files instead of silently replacing evidence or crashing later.
+- Produce parseable JUnit XML when JSON text contains XML 1.0 control characters.
+- Preserve dataset fingerprint, metric version, and configuration snapshot in `evalforge run --output` artifacts.
+- Reject explicit empty, duplicate, or unknown test-case selections before running experiments; reject CLI gates on unfinished experiments.
+- Include enabled security-probe calls in experiment token and cost totals, with per-probe usage evidence.
+- Handle absent or null provider usage with labeled estimates, include the system prompt in input estimates, and reject invalid reported token counts.
+- Prevent gate reports from overwriting input evidence or another report format through identical paths, symlinks, or hardlinks.
+- Stage all four GitHub Action reports for the current invocation and clear old output files after path validation, so invalid evidence cannot leave an earlier passing report for upload.
+
+### Maintenance and compatibility
+
+- Update pinned Docker build/setup and CodeQL Actions; group CodeQL updates and test the shared immutable ref rather than one permanently hard-coded version.
+- Python 3.9 and the small base dependency set remain supported. Existing valid policies retain their behavior unless unit/direction requirements are supplied.
+- Built-in RAG metric version is now `deterministic-v2`: token and total-cost semantics include security probes. Existing stored `deterministic-v1` summaries are unchanged; rerun baselines before comparing those totals.
+- Artifact schema 1.0 and policy version 1 remain supported. New check fields are optional; malformed or ambiguous input is now rejected explicitly.
+
 ## [0.4.0] - 2026-09-10
 
 ### Added

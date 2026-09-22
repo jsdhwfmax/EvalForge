@@ -116,15 +116,37 @@ class OpenAICompatibleProvider:
         response.raise_for_status()
         payload = response.json()
         answer = payload["choices"][0]["message"]["content"]
-        usage = payload.get("usage", {})
+        if not isinstance(answer, str):
+            raise ValueError("Provider response must contain a text answer")
+        usage = payload.get("usage")
+        if usage is None:
+            usage = {}
+        if not isinstance(usage, dict):
+            raise ValueError("Provider usage must be an object or null")
+        token_counts = {}
+        token_sources = {}
+        for key, text in (
+            ("prompt_tokens", config.system_prompt + "\n" + user_prompt),
+            ("completion_tokens", answer),
+        ):
+            count = usage.get(key)
+            if count is None:
+                token_counts[key] = estimate_tokens(text)
+                token_sources[key] = "estimated"
+            elif isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+                token_counts[key] = count
+                token_sources[key] = "reported"
+            else:
+                raise ValueError("Provider %s must be a non-negative integer or null" % key)
         return ModelResponse(
             answer=answer,
             citations=list(dict.fromkeys(CITATION_RE.findall(answer))),
-            input_tokens=usage.get("prompt_tokens", estimate_tokens(user_prompt)),
-            output_tokens=usage.get("completion_tokens", estimate_tokens(answer)),
+            input_tokens=token_counts["prompt_tokens"],
+            output_tokens=token_counts["completion_tokens"],
             raw={
                 "provider": "openai_compatible",
                 "request_id": response.headers.get("x-request-id"),
+                "token_usage_source": token_sources,
             },
         )
 

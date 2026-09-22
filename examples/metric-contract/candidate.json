@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "producer": {
+    "name": "synthetic-latency-demo",
+    "version": "1"
+  },
+  "metrics": {
+    "latency": {
+      "value": 420,
+      "unit": "ms",
+      "direction": "lower"
+    }
+  }
+}

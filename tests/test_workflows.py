@@ -32,7 +32,20 @@ def test_codeql_uses_minimal_write_permission_and_pinned_release():
 
     assert workflow.count("security-events: write") == 1
     assert "contents: write" not in workflow
-    assert workflow.count("cdf488f595d80d6e07e03d4674febd5ab45fa938") == 2
+    codeql_actions = re.findall(r"uses: github/codeql-action/([^@\s]+)@([0-9a-f]{40})", workflow)
+    assert {name for name, _ in codeql_actions} == {"init", "analyze"}
+    assert len(codeql_actions) == 2
+    assert len({sha for _, sha in codeql_actions}) == 1, (
+        "CodeQL init and analyze must use the same release"
+    )
+
+
+def test_dependabot_updates_codeql_actions_together():
+    config = (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+    actions_config = config.split("package-ecosystem: github-actions", 1)[1]
+    assert re.search(
+        r"groups:\s+codeql:\s+patterns:\s+- github/codeql-action/\*", actions_config
+    )
 
 
 def test_dependabot_respects_python_39_tooling_caps():

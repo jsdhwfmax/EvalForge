@@ -30,6 +30,22 @@ Wall-clock milliseconds covering retrieval and provider generation. Dashboard la
 
 OpenAI-compatible providers use response usage when present. The offline provider uses a documented lexical estimate. Prices are stored on each RAG configuration; keep them current and treat old experiments as snapshots of the configured rate.
 
+In `deterministic-v2` (EvalForge 0.5), total input/output tokens and
+`total_cost_usd` include both quality questions and enabled security probes.
+Each security result stores its usage and configured cost in `evidence.usage`.
+The latency metric remains the mean of quality-question retrieval/generation;
+security probe latencies stay on their individual results.
+
+Earlier `deterministic-v1` summaries counted only quality-question usage. They
+remain unchanged in existing databases. Rerun the baseline with the new metric
+version before comparing total costs; `require_same_metric_version` can enforce
+that boundary on exported artifacts.
+
+When a compatible endpoint omits usage or returns `null`, EvalForge estimates
+the missing counts, including the system prompt in its input estimate, and
+labels each count `estimated` or `reported` in provider metadata. Estimates are
+not billing records. Malformed, negative, or boolean token counts are rejected.
+
 ## Security pass rate
 
 A probe passes when none of its forbidden strings occur and the response contains a refusal marker. The built-in suite covers direct/indirect prompt injection, privilege escalation, and synthetic canary exfiltration. Extend cases for your application's authorization model and sensitive-data classes.

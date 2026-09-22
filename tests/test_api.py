@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -53,7 +55,7 @@ def test_full_experiment_comparison(client):
         assert experiment["summary"]["security_pass_rate"] == 1.0
         assert experiment["summary"]["test_cases"] == 5
         assert len(experiment["summary"]["dataset_fingerprint"]) == 16
-        assert experiment["summary"]["metric_version"] == "deterministic-v1"
+        assert experiment["summary"]["metric_version"] == "deterministic-v2"
         assert experiment["summary"]["config_snapshot"]["id"] in {"baseline", "candidate"}
     assert (
         experiments[1]["summary"]["retrieval_recall_at_k"]
@@ -148,3 +150,129 @@ def test_missing_config_after_tests_exist(client):
     )
     assert response.status_code == 404
     assert response.json()["detail"]["missing_config_ids"] == ["not-there"]
+
+
+@pytest.mark.parametrize(
+    "test_case_ids,status_code,error_text",
+    [
+        ([], 422, "test_case_ids"),
+        (["refund_window", "missing-hard-case"], 400, "missing-hard-case"),
+        (["missing-only"], 400, "missing-only"),
+        (["refund_window", "refund_window"], 400, "unique"),
+    ],
+)
+def test_invalid_explicit_selection_does_not_start_any_batch_config(
+    client, test_case_ids, status_code, error_text
+):
+    assert client.post("/api/v1/datasets/import", json=load_demo()).status_code == 200
+    for identifier in ["first", "second"]:
+        assert client.post(
+            "/api/v1/configs", json={"id": identifier, "name": identifier}
+        ).status_code == 201
+
+    response = client.post(
+        "/api/v1/experiments/run",
+        json={
+            "name": "Explicit selection",
+            "config_ids": ["first", "second"],
+            "test_case_ids": test_case_ids,
+            "include_security": False,
+        },
+    )
+
+    assert response.status_code == status_code
+    assert error_text in response.text
+    assert client.get("/api/v1/experiments").json() == []
+
+
+@pytest.mark.parametrize("test_case_ids", [None, ["refund_window", "password_link"]])
+def test_null_selection_runs_all_and_explicit_selection_runs_exact_subset(client, test_case_ids):
+    dataset = load_demo()
+    assert client.post("/api/v1/datasets/import", json=dataset).status_code == 200
+    assert client.post(
+        "/api/v1/configs", json={"id": "selection", "name": "Selection"}
+    ).status_code == 201
+
+    response = client.post(
+        "/api/v1/experiments/run",
+        json={
+            "name": "Valid selection",
+            "config_ids": ["selection"],
+            "test_case_ids": test_case_ids,
+            "include_security": False,
+        },
+    )
+
+    assert response.status_code == 200
+    experiment = response.json()["experiments"][0]
+    expected = test_case_ids if test_case_ids is not None else [
+        row["id"] for row in dataset["test_cases"]
+    ]
+    assert sorted(row["test_case_id"] for row in experiment["results"]) == sorted(expected)
+    assert experiment["summary"]["test_cases"] == len(expected)
+
+
+@pytest.mark.parametrize("include_security", [False, True])
+def test_total_cost_gate_counts_every_quality_and_security_provider_call(
+    client, monkeypatch, include_security
+):
+    from evalforge.providers import ModelResponse
+    from evalforge.security import SECURITY_CASES
+
+    calls = []
+
+    class MeteredProvider:
+        def generate(self, question, documents, config):
+            calls.append(question)
+            return ModelResponse(
+                answer="I can't comply.", citations=[], input_tokens=100, output_tokens=20,
+                raw={"token_usage_source": {
+                    "prompt_tokens": "estimated", "completion_tokens": "reported",
+                }},
+            )
+
+    monkeypatch.setattr("evalforge.services.get_provider", lambda _name: MeteredProvider())
+    assert client.post("/api/v1/datasets/import", json=load_demo()).status_code == 200
+    assert client.post(
+        "/api/v1/configs",
+        json={
+            "id": "metered", "name": "Metered",
+            "input_cost_per_million": 1000.0, "output_cost_per_million": 500.0,
+        },
+    ).status_code == 201
+
+    response = client.post(
+        "/api/v1/experiments/run",
+        json={
+            "name": "Metered run", "config_ids": ["metered"],
+            "test_case_ids": ["refund_window"], "include_security": include_security,
+        },
+    )
+
+    assert response.status_code == 200
+    experiment = response.json()["experiments"][0]
+    call_count = 1 + (len(SECURITY_CASES) if include_security else 0)
+    assert len(calls) == call_count
+    assert experiment["summary"]["input_tokens"] == 100 * call_count
+    assert experiment["summary"]["output_tokens"] == 20 * call_count
+    assert experiment["summary"]["total_cost_usd"] == pytest.approx(0.11 * call_count)
+    assert experiment["summary"]["metric_version"] == "deterministic-v2"
+    for row in experiment["security_results"]:
+        assert row["evidence"]["usage"] == {
+            "input_tokens": 100, "output_tokens": 20, "cost_usd": 0.11,
+            "token_usage_source": {
+                "prompt_tokens": "estimated", "completion_tokens": "reported",
+            },
+        }
+
+    gate = client.post(
+        "/api/v1/experiments/%s/gate" % experiment["id"],
+        json={
+            "retrieval_recall_at_k": None, "answer_correctness": None,
+            "citation_support": None, "hallucination_rate": None,
+            "security_pass_rate": None, "total_cost_usd": 0.2,
+        },
+    )
+    assert gate.status_code == 200
+    assert gate.json()["passed"] is (not include_security)
+    assert gate.json()["checks"][0]["actual"] == pytest.approx(0.11 * call_count)

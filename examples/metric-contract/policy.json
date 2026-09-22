@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "Latency unit contract",
+  "checks": [
+    {
+      "id": "latency-budget",
+      "metric": "latency",
+      "op": "lte",
+      "value": 500,
+      "unit": "ms",
+      "direction": "lower"
+    }
+  ]
+}

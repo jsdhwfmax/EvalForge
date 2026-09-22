@@ -1,12 +1,12 @@
 """Import the documented promptfoo JSON output format without copying raw content."""
 
-import json
 import math
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from evalforge.artifacts import EvaluationArtifact, artifact_from_summary
+from evalforge.json_input import load_json
 
 PROMPTFOO_SCHEMA_VERSION = 3
 ADAPTER_MAPPING_VERSION = "1"
@@ -198,12 +198,7 @@ def load_promptfoo_export(
 ) -> EvaluationArtifact:
     """Read and convert a promptfoo JSON export from disk."""
 
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError("Could not read promptfoo export %s: %s" % (path, exc)) from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError("promptfoo export %s is not valid JSON: %s" % (path, exc)) from exc
+    payload = load_json(path, label="promptfoo export")
     return promptfoo_artifact_from_export(
         payload, source_revision=source_revision, dataset_fingerprint=dataset_fingerprint
     )

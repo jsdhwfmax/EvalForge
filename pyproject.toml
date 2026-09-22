@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evalforge-ci"
-version = "0.4.0"
+version = "0.5.0"
 description = "Portable evaluation evidence and policy gates for RAG and AI assistants"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -65,7 +65,7 @@ evalforge = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --disable-warnings"
+addopts = "-q --disable-warnings --cov-config=pyproject.toml"
 
 [tool.coverage.run]
 source = ["evalforge"]

@@ -82,9 +82,6 @@ def aggregate_results(results: Sequence[Any], security_results: Sequence[Any]) -
             "citation_support": 0.0,
             "hallucination_rate": 0.0,
             "latency_ms": 0.0,
-            "total_cost_usd": 0.0,
-            "input_tokens": 0,
-            "output_tokens": 0,
         }
     else:
         quality = {
@@ -93,10 +90,21 @@ def aggregate_results(results: Sequence[Any], security_results: Sequence[Any]) -
             "citation_support": round(mean(row.citation_support for row in results), 4),
             "hallucination_rate": round(mean(row.hallucination_rate for row in results), 4),
             "latency_ms": round(mean(row.latency_ms for row in results), 2),
-            "total_cost_usd": round(sum(row.cost_usd for row in results), 8),
-            "input_tokens": sum(row.input_tokens for row in results),
-            "output_tokens": sum(row.output_tokens for row in results),
         }
+    # V1 security rows did not record usage. Existing experiment summaries stay
+    # unchanged; newly recorded V2 rows contribute all provider calls to totals.
+    security_usage = [getattr(row, "evidence", {}).get("usage", {}) for row in security_results]
+    quality["total_cost_usd"] = round(
+        sum(row.cost_usd for row in results)
+        + sum(usage.get("cost_usd", 0.0) for usage in security_usage),
+        8,
+    )
+    quality["input_tokens"] = sum(row.input_tokens for row in results) + sum(
+        usage.get("input_tokens", 0) for usage in security_usage
+    )
+    quality["output_tokens"] = sum(row.output_tokens for row in results) + sum(
+        usage.get("output_tokens", 0) for usage in security_usage
+    )
     quality["test_cases"] = len(results)
     quality["security_cases"] = len(security_results)
     quality["security_pass_rate"] = (

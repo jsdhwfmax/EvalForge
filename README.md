@@ -11,7 +11,7 @@
 
 EvalForge turns AI evaluation results into reviewable release evidence. Import promptfoo, Ragas, or supported DeepEval results, enforce a versioned policy, and publish JSON, JUnit, SARIF, and Markdown reports in your existing CI system. The gate runs offline with two direct dependencies and no hosted account.
 
-> Status: v0.4.0 alpha. The gate and offline evaluator are usable today. Integrations have explicit, tested format boundaries; the project is still seeking independently verified downstream adoption.
+> Status: v0.5.0 alpha. The gate and offline evaluator are usable today. Integrations have explicit, tested format boundaries; the project is still seeking independently verified downstream adoption.
 
 ## Why EvalForge?
 
@@ -35,7 +35,7 @@ Read the [CI cookbook](docs/CI_COOKBOOK.md) for a reproducible dataset-mismatch 
 | Evaluator adapters | promptfoo schema v3, Ragas selected score records, DeepEval 3.8.1 / 4.2.2 |
 | Comparable baselines | Opt-in matching of dataset, evaluator version, and metric-definition identity |
 | Audit evidence | Deterministic SHA-256 input/policy digests plus producer and source revision |
-| Policy gates | Absolute thresholds, baseline deltas, errors and advisory warnings |
+| Policy gates | Absolute thresholds, baseline deltas, optional unit/direction contracts, errors and advisory warnings |
 | CI reports | Stable exit codes plus JSON, JUnit XML, SARIF 2.1.0, and Markdown job summaries |
 | GitHub integration | Reusable composite Action with no hosted EvalForge account |
 | Golden datasets | JSON import API, file upload, CLI, example dataset |
@@ -151,6 +151,10 @@ The [CI cookbook](docs/CI_COOKBOOK.md#reproduce-a-misleading-green-check) includ
 passing and blocked examples, migration guidance, and the digest specification.
 Existing policies retain their behavior unless these comparison options are enabled.
 
+Individual checks can also require a `unit` and `direction`. A latency budget
+declared in milliseconds then rejects an artifact reporting seconds, even if
+the raw number looks smaller. See the [runnable unit-contract example](docs/CI_COOKBOOK.md#declare-the-thresholds-unit).
+
 ### Docker (recommended)
 
 ```bash
@@ -192,6 +196,12 @@ evalforge run baseline_top1 --name "Baseline" --output build/baseline.json
 evalforge run hybrid_top3 --name "Candidate" --output build/candidate.json
 ```
 
+Both exports preserve the dataset fingerprint, metric version, configuration
+snapshot, and source revision for strict baseline comparison. The optional
+`--test-case-id` selects exactly one existing case; an unknown ID is an error.
+API callers can provide `test_case_ids`; an empty list, duplicate IDs, or any
+unknown ID is rejected before evaluation starts. Omit the field to run all cases.
+
 Run the same release gate used by GitHub Actions:
 
 ```bash
@@ -203,7 +213,7 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.4.0
+- uses: jsdhwfmax/EvalForge@v0.5.0
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json

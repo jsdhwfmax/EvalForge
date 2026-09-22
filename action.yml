@@ -76,24 +76,78 @@ runs:
         EVALFORGE_MARKDOWN: ${{ inputs.markdown-output }}
         EVALFORGE_JOB_SUMMARY: ${{ inputs.job-summary }}
       run: |
+        path_status=0
+        python - <<'PY' || path_status=$?
+        import os
+        import sys
+        from pathlib import Path
+
+        def same_file(left, right):
+            return left.resolve() == right.resolve() or (
+                left.exists() and right.exists() and left.samefile(right)
+            )
+
+        try:
+            output_keys = (
+                "EVALFORGE_JSON", "EVALFORGE_JUNIT",
+                "EVALFORGE_SARIF", "EVALFORGE_MARKDOWN",
+            )
+            outputs = [Path(os.environ[key]) for key in output_keys]
+            protected = [
+                Path(os.environ[key])
+                for key in (
+                    "EVALFORGE_CANDIDATE", "EVALFORGE_POLICY", "EVALFORGE_BASELINE",
+                    "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY",
+                )
+                if os.environ.get(key)
+            ]
+            for index, output in enumerate(outputs):
+                if output.is_dir():
+                    raise ValueError("report output is a directory: %r" % str(output))
+                for source in protected:
+                    if same_file(output, source) or source.resolve() in output.resolve().parents:
+                        raise ValueError("report output overlaps a protected input: %r" % str(output))
+                for other in outputs[:index]:
+                    if (same_file(output, other)
+                            or output.resolve() in other.resolve().parents
+                            or other.resolve() in output.resolve().parents):
+                        raise ValueError("report outputs overlap: %r" % str(output))
+                if any(parent.exists() and not parent.is_dir() for parent in output.parents):
+                    raise ValueError("report parent is not a directory: %r" % str(output))
+            # Validate every destination before removing any previous report.
+            for output in outputs:
+                output.unlink(missing_ok=True)
+        except (OSError, RuntimeError, ValueError) as exc:
+            print("Invalid report destination: %s" % exc, file=sys.stderr)
+            raise SystemExit(2)
+        PY
+        if [[ "$path_status" -ne 0 ]]; then
+          echo "exit-code=2" >> "$GITHUB_OUTPUT"
+          exit 2
+        fi
         args=("$EVALFORGE_CANDIDATE" --policy "$EVALFORGE_POLICY")
         if [[ -n "$EVALFORGE_BASELINE" ]]; then
           args+=(--baseline "$EVALFORGE_BASELINE")
         fi
-        summary_dir=$(mktemp -d)
-        trap 'rm -rf "$summary_dir"' EXIT
+        report_dir=$(mktemp -d)
+        trap 'rm -rf "$report_dir"' EXIT
         gate_status=0
         evalforge gate "${args[@]}" \
-          --json "$EVALFORGE_JSON" \
-          --junit "$EVALFORGE_JUNIT" \
-          --sarif "$EVALFORGE_SARIF" \
-          --markdown "$summary_dir/summary.md" || gate_status=$?
+          --json "$report_dir/report.json" \
+          --junit "$report_dir/junit.xml" \
+          --sarif "$report_dir/report.sarif" \
+          --markdown "$report_dir/summary.md" || gate_status=$?
         echo "exit-code=$gate_status" >> "$GITHUB_OUTPUT"
-        if [[ -f "$summary_dir/summary.md" ]]; then
-          mkdir -p "$(dirname "$EVALFORGE_MARKDOWN")"
-          cp "$summary_dir/summary.md" "$EVALFORGE_MARKDOWN"
+        if [[ "$gate_status" -le 1 && -f "$report_dir/report.json" && -f "$report_dir/junit.xml" \
+              && -f "$report_dir/report.sarif" && -f "$report_dir/summary.md" ]]; then
+          sources=(report.json junit.xml report.sarif summary.md)
+          destinations=("$EVALFORGE_JSON" "$EVALFORGE_JUNIT" "$EVALFORGE_SARIF" "$EVALFORGE_MARKDOWN")
+          for index in "${!sources[@]}"; do
+            mkdir -p -- "$(dirname -- "${destinations[$index]}")"
+            cp -- "$report_dir/${sources[$index]}" "${destinations[$index]}"
+          done
           if [[ "$EVALFORGE_JOB_SUMMARY" == "true" ]]; then
-            cat "$summary_dir/summary.md" >> "$GITHUB_STEP_SUMMARY"
+            cat "$report_dir/summary.md" >> "$GITHUB_STEP_SUMMARY"
           fi
         fi
         exit "$gate_status"

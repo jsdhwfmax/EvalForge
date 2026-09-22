@@ -2,7 +2,7 @@ import hashlib
 import json
 from typing import Any, Dict, Sequence
 
-METRIC_VERSION = "deterministic-v1"
+METRIC_VERSION = "deterministic-v2"
 
 
 def dataset_fingerprint(documents: Sequence[Any], test_cases: Sequence[Any]) -> str:

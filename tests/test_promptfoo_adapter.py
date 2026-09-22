@@ -6,7 +6,7 @@ import jsonschema
 import pytest
 from typer.testing import CliRunner
 
-from evalforge.adapters.promptfoo import promptfoo_artifact_from_export
+from evalforge.adapters.promptfoo import load_promptfoo_export, promptfoo_artifact_from_export
 from evalforge.cli import app
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -125,3 +125,39 @@ def test_promptfoo_cli_imports_explicit_format(tmp_path):
     assert payload["producer"] == {"name": "promptfoo", "version": "0.122.2"}
     assert payload["run"] == {"id": "eval-synthetic-001", "source_revision": "abc123"}
     assert "Wrote promptfoo evaluation artifact" in result.output
+
+
+def test_promptfoo_loader_rejects_duplicate_scores_instead_of_replacing_failures(tmp_path):
+    payload = _payload()
+    payload["results"]["results"][0]["score"] = 0.2
+    source = json.dumps(payload).replace('"score": 0.2', '"score": 0.2, "score": 1.0', 1)
+    path = tmp_path / "export.json"
+    path.write_text(source, encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate JSON object keys"):
+        load_promptfoo_export(path)
+    output = tmp_path / "artifact.json"
+    result = CliRunner().invoke(app, ["import", "promptfoo", str(path), "--output", str(output)])
+    assert result.exit_code == 2
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+def test_promptfoo_loader_rejects_non_finite_ignored_metadata(tmp_path, value):
+    payload = _payload()
+    payload["metadata"]["unknown"] = {"nested": [value]}
+    path = tmp_path / "export.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="finite numbers"):
+        load_promptfoo_export(path)
+
+
+def test_promptfoo_loader_rejects_invalid_utf8_with_a_clear_cli_error(tmp_path):
+    path = tmp_path / "export.json"
+    path.write_bytes(b'\xff')
+    with pytest.raises(ValueError, match="promptfoo export .*not valid UTF-8 JSON"):
+        load_promptfoo_export(path)
+    result = CliRunner().invoke(app, [
+        "import", "promptfoo", str(path), "--output", str(tmp_path / "artifact.json"),
+    ])
+    assert result.exit_code == 2
+    assert "not valid UTF-8 JSON" in result.output

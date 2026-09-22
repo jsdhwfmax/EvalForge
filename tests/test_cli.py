@@ -51,3 +51,63 @@ def test_gate_command_returns_nonzero_for_regression(client):
     )
     assert result.exit_code == 1
     assert '"passed": false' in result.output
+
+
+def test_run_artifact_supports_strict_comparison(client, tmp_path, monkeypatch):
+    from evalforge.artifacts import load_artifact
+    from evalforge.gates import ComparisonPolicy, GateCheck, GatePolicy, evaluate_gate
+    from evalforge.reproducibility import METRIC_VERSION
+
+    client.post("/api/v1/datasets/import", json=load_demo())
+    client.post("/api/v1/configs", json={"id": "export", "name": "Export"})
+    monkeypatch.setenv("GITHUB_SHA", "source-revision-under-test")
+    path = tmp_path / "run.json"
+    result = runner.invoke(app, ["run", "export", "--output", str(path)])
+    assert result.exit_code == 0, result.output
+    artifact = load_artifact(path)
+    assert artifact.metadata["dataset_fingerprint"]
+    assert artifact.metadata["metric_version"] == METRIC_VERSION
+    assert artifact.metadata["config_snapshot"]["id"] == "export"
+    assert artifact.run.source_revision == "source-revision-under-test"
+    policy = GatePolicy(
+        comparison=ComparisonPolicy(
+            require_same_dataset=True, require_same_producer=True,
+            require_same_metric_version=True,
+        ),
+        checks=[GateCheck(id="recall", metric="retrieval_recall_at_k", op="gte", value=0)],
+    )
+    assert evaluate_gate(policy, artifact, artifact).passed
+
+
+def test_run_rejects_unknown_or_empty_selected_case(client, tmp_path):
+    client.post("/api/v1/datasets/import", json=load_demo())
+    client.post("/api/v1/configs", json={"id": "selection", "name": "Selection"})
+    for case_id in ["does-not-exist", ""]:
+        output = tmp_path / "run.json"
+        result = runner.invoke(
+            app, ["run", "selection", "--test-case-id", case_id, "--output", str(output)]
+        )
+        assert result.exit_code == 2, result.output
+        assert not output.exists()
+    assert client.get("/api/v1/experiments").json() == []
+
+
+def test_run_rejects_empty_dataset(client):
+    client.post("/api/v1/configs", json={"id": "empty", "name": "Empty"})
+    result = runner.invoke(app, ["run", "empty"])
+    assert result.exit_code == 2
+    assert "No test cases" in result.output
+
+
+def test_gate_experiment_rejects_unfinished_summary(client):
+    from evalforge.database import session_scope
+    from evalforge.models import Experiment
+
+    experiment_id = _prepare_experiment(client)
+    with session_scope() as db:
+        experiment = db.get(Experiment, experiment_id)
+        experiment.status = "failed"
+        db.commit()
+    result = runner.invoke(app, ["gate-experiment", experiment_id])
+    assert result.exit_code == 2
+    assert "must be completed" in result.output

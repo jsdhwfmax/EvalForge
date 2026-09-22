@@ -37,9 +37,14 @@ def test_committed_examples_match_normative_json_schemas():
             (ROOT / "examples/strict-comparison" / (name + ".json")).read_text(encoding="utf-8")
         )
         jsonschema.validate(payload, artifact_schema)
+    for name in ["candidate", "wrong-unit"]:
+        payload = json.loads(
+            (ROOT / "examples/metric-contract" / (name + ".json")).read_text(encoding="utf-8")
+        )
+        jsonschema.validate(payload, artifact_schema)
     for name in [
         "quality_policy.json", "promptfoo_policy.json", "ragas_policy.json",
-        "deepeval_policy.json", "strict-comparison/policy.json",
+        "deepeval_policy.json", "strict-comparison/policy.json", "metric-contract/policy.json",
     ]:
         policy = json.loads((ROOT / "examples" / name).read_text(encoding="utf-8"))
         jsonschema.validate(policy, policy_schema)

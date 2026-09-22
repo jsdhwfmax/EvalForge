@@ -61,6 +61,24 @@
           "description": {
             "type": "string",
             "default": ""
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Required candidate unit; no implicit conversion."
+          },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "neutral",
+              null
+            ],
+            "description": "Required candidate metric direction."
           }
         }
       }

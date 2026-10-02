@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run your evaluator
         run: python scripts/evaluate.py --output build/candidate.json
-      - uses: jsdhwfmax/EvalForge@v0.5.0
+      - uses: jsdhwfmax/EvalForge@v0.6.0
         id: evalforge
         with:
           candidate: build/candidate.json
@@ -118,8 +118,16 @@ are retained after valid destination preflight. A destination that aliases an
 input or another output is rejected before any files are changed. Pin EvalForge's full release
 commit SHA when adopting it in a production workflow.
 
-For repeated direct CLI invocations, use a fresh report directory per run;
-invalid input does not replace reports from an earlier CLI invocation.
+The direct `evalforge gate` CLI also clears its explicitly selected report files
+after destination validation and before reading evidence. Invalid input cannot leave
+an older passing report at those paths. All selected formats are rendered before
+writing begins. Files not selected by the invocation remain untouched; use a fresh
+directory per run when collecting a whole directory. I/O failures can still interrupt
+publication, so always check the exit code and retain the source evidence.
+
+All three `evalforge import` commands reject an output that aliases the source,
+including symbolic and hard links, before reading or writing it. Convert into a
+separate artifact path to retain the original evaluator export.
 
 ## Audit a decision
 

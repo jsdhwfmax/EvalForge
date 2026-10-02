@@ -2,7 +2,7 @@
 
 All notable changes are documented here. The project follows semantic versioning while the artifact and policy formats carry independent schema versions.
 
-## [Unreleased]
+## [0.6.0] - 2026-10-02
 
 ### Added
 
@@ -13,6 +13,18 @@ All notable changes are documented here. The project follows semantic versioning
 
 ### Fixed
 
+- Fail stored-experiment gates closed on boolean, string, or non-finite metric
+  evidence; reject non-finite configuration prices and thresholds before persistence.
+- Mark missing/mismatched dataset or metric-version identities as non-comparable,
+  preserving finite raw deltas without misleading improvement/regression verdicts.
+- Compute promptfoo and DeepEval means without avoidable intermediate rounding that
+  made three scores of 0.7 fail a 0.7 lower bound.
+- Protect all evaluator-import source files from output aliases, and clear selected
+  old CLI gate reports after path validation so invalid input cannot leave stale PASS.
+- Return persisted failed experiments alongside successful batch results and continue
+  independent configurations; reject duplicate configuration IDs before execution.
+- Detect non-finite calculated costs, show partial failures in the dashboard, and
+  avoid representing missing or failed scores as zero cost or perfect groundedness.
 - Bind dashboard gate and comparison results to their exact inputs so changed selections
   cannot display a stale release decision; inspect identically named experiments by ID.
 - Skip repeated document/test IDs within one dataset import instead of failing the entire
@@ -24,6 +36,16 @@ All notable changes are documented here. The project follows semantic versioning
 
 - Reuse corpus word counts and BM25 constants across questions without changing retrieval
   scores or deterministic ranking.
+
+### Compatibility
+
+- Python 3.9, artifact schema 1.0, policy version 1, and `deterministic-v2` remain
+  supported. No database migration or rewriting of historical experiments is required.
+- Built-in comparisons now require complete matching identities. Batch callers must
+  inspect each returned experiment's status even when HTTP 200 is returned.
+- Production API/dashboard deployments must configure the shared access key; local
+  development remains available without a key. See `docs/DEPLOYMENT.md`.
+- Update both CodeQL Action steps together to the verified v4.38.2 commit.
 
 ## [0.5.0] - 2026-09-22
 

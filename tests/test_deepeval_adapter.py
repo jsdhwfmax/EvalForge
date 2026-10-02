@@ -11,7 +11,7 @@ from evalforge.adapters.deepeval import (
     deepeval_artifact_from_export,
     load_deepeval_export,
 )
-from evalforge.gates import evaluate_gate, load_policy
+from evalforge.gates import GateCheck, GatePolicy, evaluate_gate, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "deepeval"
@@ -280,3 +280,21 @@ def test_example_policy_accepts_current_fixture_and_rejects_legacy_score_semanti
     legacy_report = evaluate_gate(policy, _convert(_payload("3.8.1"), "3.8.1"))
     assert not legacy_report.passed
     assert any(check.outcome == "error" for check in legacy_report.checks)
+
+
+@pytest.mark.parametrize("version", SUPPORTED_VERSIONS)
+@pytest.mark.parametrize("score", [0.1, 0.7, 0.8])
+def test_identical_deepeval_scores_keep_exact_threshold_boundaries(version, score):
+    payload = _payload(version)
+    for row in payload["test_results"]:
+        row["success"] = True
+        row["metrics_data"] = [{
+            "name": "Answer Relevancy", "score": score, "threshold": score, "success": True,
+        }]
+    artifact = _convert(payload, version)
+    assert artifact.metrics["deepeval_answer_relevancy"].value == score
+    for op in ("gte", "lte"):
+        policy = GatePolicy(checks=[GateCheck(
+            id="boundary", metric="deepeval_answer_relevancy", op=op, value=score,
+        )])
+        assert evaluate_gate(policy, artifact).passed

@@ -2,6 +2,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
+import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -44,7 +45,9 @@ def dashboard(monkeypatch):
         "/api/v1/experiments": experiments,
         "/api/v1/configs": [{"id": "config", "name": "Local"}],
         "/api/v1/documents": [],
-        "/api/v1/test-cases": [],
+        "/api/v1/test-cases": [{
+            "id": "test-case", "question": "Question", "relevant_document_ids": [], "tags": []
+        }],
     }
     calls = []
     failures = set()
@@ -63,8 +66,12 @@ def dashboard(monkeypatch):
                 "improvements": 1,
                 "regressions": 0,
                 "dataset_fingerprint_match": True,
+                "metric_version_match": True,
+                "comparable": True,
+                "incompatibilities": [],
                 "metrics": {},
             }
+            result.update(responses.get("comparison_override", {}))
         elif path.endswith("/gate"):
             result = {"experiment_id": path.split("/")[-2], "passed": True, "checks": []}
         else:
@@ -74,11 +81,11 @@ def dashboard(monkeypatch):
     monkeypatch.setattr(httpx, "request", request)
     app = AppTest.from_file(str(DASHBOARD), default_timeout=10).run()
     assert not app.exception
-    return app, calls, failures
+    return app, calls, failures, responses
 
 
 def test_duplicate_names_inspect_the_selected_experiment(dashboard):
-    app, _, _ = dashboard
+    app, _, _, _ = dashboard
 
     widget(app.selectbox, "Inspect test-level results").set_value("second-run").run()
 
@@ -89,7 +96,7 @@ def test_duplicate_names_inspect_the_selected_experiment(dashboard):
 
 @pytest.mark.parametrize("selector", ["Baseline experiment", "Candidate experiment"])
 def test_comparison_is_cleared_when_either_experiment_changes(dashboard, selector):
-    app, calls, _ = dashboard
+    app, calls, _, _ = dashboard
     widget(app.button, "Compare baseline and candidate").click().run()
     assert app.session_state["comparison_report"]["improvements"] == 1
     assert app.session_state["comparison_request"] == calls[-1][2]["params"]
@@ -105,7 +112,7 @@ def test_comparison_is_cleared_when_either_experiment_changes(dashboard, selecto
 
 @pytest.mark.parametrize("change", ["experiment", "threshold", "cost"])
 def test_gate_pass_is_cleared_when_its_request_changes(dashboard, change):
-    app, calls, _ = dashboard
+    app, calls, _, _ = dashboard
     widget(app.button, "Evaluate release gate").click().run()
     assert app.session_state["gate_result"]["passed"]
     assert app.session_state["gate_request"]["thresholds"] == calls[-1][2]["json"]
@@ -131,7 +138,7 @@ def test_gate_pass_is_cleared_when_its_request_changes(dashboard, change):
     ],
 )
 def test_failed_retry_clears_previous_result(dashboard, button, path, state_key):
-    app, _, failures = dashboard
+    app, _, failures, _ = dashboard
     widget(app.button, button).click().run()
     assert state_key in app.session_state
     failures.add(path)
@@ -144,7 +151,7 @@ def test_failed_retry_clears_previous_result(dashboard, button, path, state_key)
 
 
 def test_unrelated_widget_change_preserves_matching_gate_result(dashboard):
-    app, _, _ = dashboard
+    app, _, _, _ = dashboard
     widget(app.button, "Evaluate release gate").click().run()
 
     widget(app.selectbox, "Inspect test-level results").set_value("second-run").run()
@@ -152,3 +159,44 @@ def test_unrelated_widget_change_preserves_matching_gate_result(dashboard):
     assert not app.exception
     assert app.session_state["gate_result"]["passed"]
     assert any(item.value.startswith("PASS") for item in app.success)
+
+
+def test_incompatible_metric_versions_show_comparison_warning(dashboard):
+    app, _, _, responses = dashboard
+    responses["comparison_override"] = {
+        "metric_version_match": False,
+        "comparable": False,
+        "incompatibilities": ["Metric versions do not match; rerun the baseline."],
+        "improvements": 0,
+        "regressions": 0,
+    }
+
+    widget(app.button, "Compare baseline and candidate").click().run()
+
+    assert not app.exception
+    assert widget(app.metric, "Comparable evidence").value == "No"
+    assert any("Metric versions do not match" in item.value for item in app.warning)
+
+
+def test_partial_batch_failure_stays_visible_after_refresh(dashboard):
+    app, calls, _, responses = dashboard
+    failed = dict(responses["/api/v1/experiments"][1])
+    failed.update(id="failed-run", status="failed", error="Provider unavailable", summary={})
+    responses["/api/v1/experiments/run"] = {
+        "experiments": [responses["/api/v1/experiments"][0], failed]
+    }
+    responses["/api/v1/experiments"] = responses["/api/v1/experiments/run"]["experiments"]
+
+    widget(app.button, "Run evaluation").click().run()
+
+    assert not app.exception
+    assert any("1 completed, 1 failed" in item.value for item in app.error)
+    assert not any("Last batch" in item.value for item in app.success)
+    failed_rows = next(item.value for item in app.dataframe if "Error" in item.value.columns)
+    assert failed_rows.iloc[0]["Experiment ID"] == "failed-run"
+    overview = next(item.value for item in app.dataframe if "Status" in item.value.columns)
+    row = overview[overview["Status"] == "failed"].iloc[0]
+    assert all(pd.isna(row[column]) for column in (
+        "Recall@K", "Groundedness", "Security", "Cost (USD)"
+    ))
+    assert sum(method == "POST" and path.endswith("/run") for method, path, _ in calls) == 1

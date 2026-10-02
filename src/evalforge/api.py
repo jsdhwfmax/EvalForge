@@ -1,8 +1,10 @@
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -30,6 +32,7 @@ from evalforge.schemas import (
     TestCaseRead,
 )
 from evalforge.services import (
+    ExperimentExecutionError,
     create_config,
     create_document,
     create_test_case,
@@ -61,6 +64,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 api_router = APIRouter(dependencies=[Depends(require_access)])
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error(_request: Request, exc: RequestValidationError):
+    # Rejected inputs can contain NaN/Infinity or sensitive request values.
+    # Return actionable schema diagnostics without echoing input or context.
+    detail = [
+        {key: error[key] for key in ("loc", "msg", "type") if key in error}
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": detail})
 
 
 @app.get("/health", tags=["system"])
@@ -171,14 +185,21 @@ def run_batch(payload: ExperimentRun, db: Session = Depends(get_db)):
     configs = [config for config in resolved_configs if config is not None]
     experiments = []
     for config in configs:
-        experiment = run_experiment(
-            db,
-            name="%s · %s" % (payload.name, config.name),
-            config=config,
-            test_cases=test_cases,
-            include_security=payload.include_security,
-        )
-        experiments.append(_load_experiment(db, experiment.id))
+        try:
+            experiment = run_experiment(
+                db,
+                name="%s · %s" % (payload.name, config.name),
+                config=config,
+                test_cases=test_cases,
+                include_security=payload.include_security,
+            )
+        except ExperimentExecutionError as exc:
+            failed_experiment = _load_experiment(db, exc.experiment_id)
+            if failed_experiment is None or failed_experiment.status != "failed":
+                raise
+            experiments.append(failed_experiment)
+        else:
+            experiments.append(_load_experiment(db, experiment.id))
     return ExperimentBatchRead(experiments=experiments)
 
 

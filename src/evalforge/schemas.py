@@ -39,6 +39,8 @@ class TestCaseRead(TestCaseCreate, ORMModel):
 
 
 class RagConfigCreate(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
     id: Optional[str] = None
     name: str = Field(min_length=1, max_length=120)
     provider: str = "local"
@@ -74,6 +76,12 @@ class ExperimentRun(BaseModel):
     config_ids: List[str] = Field(min_length=1)
     test_case_ids: Optional[List[str]] = Field(default=None, min_length=1)
     include_security: bool = True
+
+    @model_validator(mode="after")
+    def config_ids_are_unique(self):
+        if len(set(self.config_ids)) != len(self.config_ids):
+            raise ValueError("Configuration IDs must be unique")
+        return self
 
 
 class EvaluationResultRead(ORMModel):
@@ -133,6 +141,8 @@ class ExperimentBatchRead(BaseModel):
 
 
 class QualityGateRequest(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
     retrieval_recall_at_k: Optional[float] = Field(default=0.8, ge=0.0, le=1.0)
     answer_correctness: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
     citation_support: Optional[float] = Field(default=0.8, ge=0.0, le=1.0)
@@ -149,6 +159,7 @@ class QualityGateCheck(BaseModel):
     operator: str
     threshold: float
     passed: bool
+    reason: Optional[str] = None
 
 
 class QualityGateRead(BaseModel):
@@ -170,6 +181,9 @@ class ExperimentComparisonRead(BaseModel):
     baseline_experiment_id: str
     candidate_experiment_id: str
     dataset_fingerprint_match: bool
+    metric_version_match: bool
+    comparable: bool
+    incompatibilities: List[str]
     metrics: Dict[str, MetricDelta]
     improvements: int
     regressions: int

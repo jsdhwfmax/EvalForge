@@ -3,6 +3,7 @@
 import math
 import re
 from pathlib import Path
+from statistics import mean
 from typing import Any, Dict, List, Optional
 
 from evalforge.artifacts import EvaluationArtifact, artifact_from_summary
@@ -150,8 +151,8 @@ def promptfoo_artifact_from_export(
 
     metrics: Dict[str, float] = {
         "promptfoo_pass_rate": successes / len(rows),
-        "promptfoo_mean_score": sum(scores) / len(scores),
-        "latency_ms": sum(latencies) / len(latencies),
+        "promptfoo_mean_score": mean(scores),
+        "latency_ms": mean(latencies),
         "test_cases": float(len(rows)),
     }
     if all_rows_have_cost:

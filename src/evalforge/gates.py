@@ -489,6 +489,16 @@ METRIC_RULES = {
 }
 
 
+def _finite_summary_number(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
+
+
 def evaluate_quality_gate(summary: Dict[str, Any], thresholds: Dict[str, Any]) -> Dict[str, Any]:
     """Evaluate dashboard/API thresholds against a stored experiment summary."""
 
@@ -497,20 +507,24 @@ def evaluate_quality_gate(summary: Dict[str, Any], thresholds: Dict[str, Any]) -
         if threshold is None or metric not in METRIC_RULES:
             continue
         operator_name, label = METRIC_RULES[metric]
-        actual = summary.get(metric)
+        numeric_threshold = _finite_summary_number(threshold)
+        if numeric_threshold is None:
+            raise ValueError("Threshold for %s must be a finite number" % metric)
+        actual = _finite_summary_number(summary.get(metric))
         passed = actual is not None and (
-            actual >= threshold if operator_name == "min" else actual <= threshold
+            actual >= numeric_threshold if operator_name == "min" else actual <= numeric_threshold
         )
-        checks.append(
-            {
-                "metric": metric,
-                "label": label,
-                "actual": actual,
-                "operator": ">=" if operator_name == "min" else "<=",
-                "threshold": threshold,
-                "passed": passed,
-            }
-        )
+        check = {
+            "metric": metric,
+            "label": label,
+            "actual": actual,
+            "operator": ">=" if operator_name == "min" else "<=",
+            "threshold": numeric_threshold,
+            "passed": passed,
+        }
+        if actual is None:
+            check["reason"] = "Metric is missing or is not a finite number"
+        checks.append(check)
     return {
         "passed": bool(checks) and all(check["passed"] for check in checks),
         "checks": checks,
@@ -523,37 +537,71 @@ def compare_experiment_summaries(
     candidate_id: str,
     candidate_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Build direction-aware deltas for two stored RAG experiments."""
+    """Describe finite deltas, grading them only when evidence is comparable."""
 
-    metrics = {}
+    identity_matches = {}
+    incompatibilities = []
+    for identity in ("dataset_fingerprint", "metric_version"):
+        baseline_identity = baseline_summary.get(identity)
+        candidate_identity = candidate_summary.get(identity)
+        identity_matches[identity] = (
+            isinstance(baseline_identity, str)
+            and bool(baseline_identity.strip())
+            and isinstance(candidate_identity, str)
+            and bool(candidate_identity.strip())
+            and baseline_identity == candidate_identity
+        )
+        if not identity_matches[identity]:
+            incompatibilities.append(
+                "Both experiments must have the same non-empty %s" % identity
+            )
+
+    metrics: Dict[str, Dict[str, Any]] = {}
     for metric, (direction, label) in METRIC_RULES.items():
-        baseline = baseline_summary.get(metric)
-        candidate = candidate_summary.get(metric)
+        baseline_raw = baseline_summary.get(metric)
+        candidate_raw = candidate_summary.get(metric)
+        baseline = _finite_summary_number(baseline_raw)
+        candidate = _finite_summary_number(candidate_raw)
+        for side, raw, number in (
+            ("Baseline", baseline_raw, baseline), ("Candidate", candidate_raw, candidate)
+        ):
+            if raw is not None and number is None:
+                incompatibilities.append("%s metric %s is not a finite number" % (side, metric))
         if baseline is None or candidate is None:
             continue
         delta = round(candidate - baseline, 8)
-        preferred_delta = delta if direction == "min" else -delta
-        if abs(preferred_delta) < 1e-12:
-            verdict = "unchanged"
-        elif preferred_delta > 0:
-            verdict = "improved"
-        else:
-            verdict = "regressed"
+        if not math.isfinite(delta):
+            incompatibilities.append("Metric delta for %s is not finite" % metric)
+            continue
         metrics[metric] = {
             "label": label,
             "baseline": baseline,
             "candidate": candidate,
             "delta": delta,
             "direction": "higher_is_better" if direction == "min" else "lower_is_better",
-            "verdict": verdict,
         }
-    baseline_fingerprint = baseline_summary.get("dataset_fingerprint")
-    candidate_fingerprint = candidate_summary.get("dataset_fingerprint")
+    if not metrics:
+        incompatibilities.append("No shared finite metrics are available")
+    comparable = not incompatibilities
+    for item in metrics.values():
+        preferred_delta = (
+            item["delta"] if item["direction"] == "higher_is_better" else -item["delta"]
+        )
+        if not comparable:
+            item["verdict"] = "not_comparable"
+        elif abs(preferred_delta) < 1e-12:
+            item["verdict"] = "unchanged"
+        elif preferred_delta > 0:
+            item["verdict"] = "improved"
+        else:
+            item["verdict"] = "regressed"
     return {
         "baseline_experiment_id": baseline_id,
         "candidate_experiment_id": candidate_id,
-        "dataset_fingerprint_match": bool(baseline_fingerprint)
-        and baseline_fingerprint == candidate_fingerprint,
+        "dataset_fingerprint_match": identity_matches["dataset_fingerprint"],
+        "metric_version_match": identity_matches["metric_version"],
+        "comparable": comparable,
+        "incompatibilities": incompatibilities,
         "metrics": metrics,
         "improvements": sum(item["verdict"] == "improved" for item in metrics.values()),
         "regressions": sum(item["verdict"] == "regressed" for item in metrics.values()),

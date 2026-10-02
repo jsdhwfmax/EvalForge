@@ -11,7 +11,7 @@
 
 EvalForge turns AI evaluation results into reviewable release evidence. Import promptfoo, Ragas, or supported DeepEval results, enforce a versioned policy, and publish JSON, JUnit, SARIF, and Markdown reports in your existing CI system. The gate runs offline with two direct dependencies and no hosted account.
 
-> Status: v0.5.0 alpha. The gate and offline evaluator are usable today. Integrations have explicit, tested format boundaries; the project is still seeking independently verified downstream adoption.
+> Status: v0.6.0 alpha. The gate and offline evaluator are usable today. Integrations have explicit, tested format boundaries; the project is still seeking independently verified downstream adoption.
 
 ## Why EvalForge?
 
@@ -213,7 +213,7 @@ The command prints the measured summary, writes a portable evaluation artifact p
 ### GitHub Action
 
 ```yaml
-- uses: jsdhwfmax/EvalForge@v0.5.0
+- uses: jsdhwfmax/EvalForge@v0.6.0
   with:
     candidate: build/candidate.json
     baseline: build/baseline.json
@@ -250,7 +250,7 @@ flowchart LR
 
 Every test result stores the answer, citations, retrieved document IDs, quality scores, latency, token counts, cost, and provider metadata. Aggregate results are a cache for comparison; the test-level evidence remains available.
 
-Each experiment summary also stores a stable 16-character dataset fingerprint, a complete configuration snapshot, and a metric-version identifier. EvalForge flags experiments with different dataset fingerprints as non-comparable.
+Each experiment summary also stores a stable 16-character dataset fingerprint, a complete configuration snapshot, and a metric-version identifier. Built-in experiment comparisons require matching, non-empty dataset fingerprints and metric versions. Missing or incompatible identities are reported as non-comparable: finite raw deltas remain visible, but are not counted as improvements or regressions. Historical runs remain available; rerun the baseline with the current evaluator before making a release comparison.
 
 The gate path is independent of the API, dashboard, database, and model provider:
 
@@ -312,6 +312,14 @@ curl -X POST http://localhost:8000/api/v1/experiments/run \
     "include_security": true
   }'
 ```
+
+The batch response contains each experiment's `id`, `status`, and `error`.
+A provider failure is recorded as `failed`, and independent configurations continue.
+HTTP 200 means the batch was processed; check every experiment's status before
+using its results. Failed runs are never automatically retried. Unknown or duplicate
+configuration IDs are rejected before any run starts. Database failures remain errors.
+The dashboard keeps the completed/failed counts visible after refresh and excludes
+failed runs from score charts.
 
 Import data:
 

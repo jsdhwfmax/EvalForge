@@ -101,25 +101,27 @@ with overview_tab:
         rows = []
         config_names = {item["id"]: item["name"] for item in configs}
         for experiment in experiments:
-            values = experiment.get("summary", {})
+            values = experiment.get("summary", {}) if experiment["status"] == "completed" else {}
+            hallucination = values.get("hallucination_rate")
             rows.append(
                 {
                     "Experiment": experiment["name"],
+                    "Status": experiment["status"],
                     "Configuration": config_names.get(
                         experiment["config_id"], experiment["config_id"]
                     ),
-                    "Recall@K": values.get("retrieval_recall_at_k", 0),
-                    "Correctness": values.get("answer_correctness", 0),
-                    "Citation support": values.get("citation_support", 0),
-                    "Groundedness": 1 - values.get("hallucination_rate", 0),
-                    "Security": values.get("security_pass_rate") or 0,
-                    "Latency (ms)": values.get("latency_ms", 0),
-                    "Cost (USD)": values.get("total_cost_usd", 0),
+                    "Recall@K": values.get("retrieval_recall_at_k"),
+                    "Correctness": values.get("answer_correctness"),
+                    "Citation support": values.get("citation_support"),
+                    "Groundedness": 1 - hallucination if hallucination is not None else None,
+                    "Security": values.get("security_pass_rate"),
+                    "Latency (ms)": values.get("latency_ms"),
+                    "Cost (USD)": values.get("total_cost_usd"),
                     "Created": experiment["created_at"],
                 }
             )
         frame = pd.DataFrame(rows)
-        chart_data = frame.melt(
+        chart_data = frame[frame["Status"] == "completed"].melt(
             id_vars=["Experiment", "Configuration"],
             value_vars=["Recall@K", "Correctness", "Citation support", "Groundedness", "Security"],
             var_name="Metric",
@@ -179,6 +181,19 @@ with overview_tab:
 
 with run_tab:
     st.subheader("Run a reproducible comparison")
+    last_batch = st.session_state.get("last_batch_result")
+    if last_batch:
+        completed = sum(item["status"] == "completed" for item in last_batch)
+        failed = [item for item in last_batch if item["status"] == "failed"]
+        message = "Last batch: %s completed, %s failed." % (completed, len(failed))
+        if failed:
+            st.error(message + " Failed runs were not retried.")
+            st.dataframe(pd.DataFrame([
+                {"Experiment ID": item["id"], "Name": item["name"], "Error": item["error"]}
+                for item in failed
+            ]), width="stretch", hide_index=True)
+        else:
+            st.success(message)
     if not configs or not test_cases:
         st.warning("Import a dataset and create at least one configuration first.")
     else:
@@ -196,6 +211,7 @@ with run_tab:
             if not selected_labels:
                 st.warning("Choose at least one configuration.")
             else:
+                st.session_state.pop("last_batch_result", None)
                 with st.spinner("Running retrieval, generation, scoring, and security checks…"):
                     result = api(
                         "POST",
@@ -207,9 +223,7 @@ with run_tab:
                         },
                     )
                 if result:
-                    st.success(
-                        "Completed %s experiment run(s). Refreshing…" % len(result["experiments"])
-                    )
+                    st.session_state["last_batch_result"] = result["experiments"]
                     st.rerun()
 
     with st.expander("Add a configuration"):
@@ -291,9 +305,16 @@ with release_tab:
                 delta_a.metric("Improvements", comparison["improvements"])
                 delta_b.metric("Regressions", comparison["regressions"])
                 delta_c.metric(
-                    "Comparable dataset",
-                    "Yes" if comparison["dataset_fingerprint_match"] else "No",
+                    "Comparable evidence",
+                    "Yes" if comparison.get("comparable", False) else "No",
                 )
+                if not comparison.get("comparable", False):
+                    st.warning(
+                        "These runs cannot establish an improvement or regression. "
+                        + " ".join(comparison.get("incompatibilities", [
+                            "Comparison identity is unavailable; rerun both experiments."
+                        ]))
+                    )
                 comparison_rows = []
                 for _metric, values in comparison["metrics"].items():
                     comparison_rows.append(

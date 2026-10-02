@@ -2,6 +2,22 @@
 
 EvalForge separates **measurement** from **release policy**. A model evaluator, RAG benchmark, red-team suite, or custom script measures the system. EvalForge carries the resulting metrics in a small versioned artifact, compares releases, applies explicit policy, and emits reports for CI systems.
 
+## Built-in experiment comparison
+
+The stored-experiment API and `evalforge compare` return `comparable`,
+`dataset_fingerprint_match`, `metric_version_match`, and `incompatibilities`.
+Both identities must be non-empty strings and match. Invalid numeric evidence or
+no common finite metrics also makes the comparison unavailable. In that case,
+valid raw deltas remain inspectable with verdict `not_comparable`, while
+`improvements` and `regressions` are zero. Missing optional metrics are omitted.
+Rerun old baselines when their metric version is missing or differs; the API does
+not rewrite historical summaries. This built-in behavior is separate from the
+portable policy's opt-in `comparison` requirements described below.
+
+Stored-experiment quality gates reject booleans, numeric strings, and non-finite
+values as metric evidence. Such checks return `passed: false`, `actual: null`,
+and a `reason`; malformed evidence cannot silently satisfy a threshold.
+
 This boundary is useful because teams should be able to change an evaluator without rewriting every release check or losing historical evidence.
 
 ## Evaluation artifact v1

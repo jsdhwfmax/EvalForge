@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from evalforge.adapters.promptfoo import load_promptfoo_export, promptfoo_artifact_from_export
 from evalforge.cli import app
+from evalforge.gates import GateCheck, GatePolicy, evaluate_gate
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "promptfoo" / "results-v3.json"
@@ -102,6 +103,32 @@ def test_promptfoo_import_rejects_inconsistent_stats():
 
     with pytest.raises(ValueError, match="do not match result rows"):
         promptfoo_artifact_from_export(payload)
+
+
+@pytest.mark.parametrize("score", [0.1, 0.7, 0.8])
+def test_identical_promptfoo_scores_and_latencies_keep_exact_threshold_boundaries(score):
+    payload = _payload()
+    for row in payload["results"]["results"]:
+        row["score"] = score
+        row["latencyMs"] = score
+    artifact = promptfoo_artifact_from_export(payload)
+    for metric in ("promptfoo_mean_score", "latency_ms"):
+        assert artifact.metrics[metric].value == score
+        for op in ("gte", "lte"):
+            policy = GatePolicy(checks=[
+                GateCheck(id="boundary", metric=metric, op=op, value=score)
+            ])
+            assert evaluate_gate(policy, artifact).passed
+
+
+def test_promptfoo_mean_is_finite_when_only_the_intermediate_sum_would_overflow():
+    payload = _payload()
+    for row in payload["results"]["results"]:
+        row["score"] = 1e308
+        row["latencyMs"] = 1e308
+    artifact = promptfoo_artifact_from_export(payload)
+    assert artifact.metrics["promptfoo_mean_score"].value == 1e308
+    assert artifact.metrics["latency_ms"].value == 1e308
 
 
 def test_promptfoo_cli_imports_explicit_format(tmp_path):

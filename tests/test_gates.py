@@ -36,18 +36,23 @@ def test_quality_gate_reports_each_threshold():
 def test_comparison_understands_metric_direction_and_fingerprint():
     baseline = {
         "dataset_fingerprint": "same",
+        "metric_version": "deterministic-v2",
         "answer_correctness": 0.6,
         "hallucination_rate": 0.1,
         "latency_ms": 10.0,
     }
     candidate = {
         "dataset_fingerprint": "same",
+        "metric_version": "deterministic-v2",
         "answer_correctness": 0.8,
         "hallucination_rate": 0.2,
         "latency_ms": 8.0,
     }
     result = compare_experiment_summaries("base", baseline, "candidate", candidate)
     assert result["dataset_fingerprint_match"] is True
+    assert result["metric_version_match"] is True
+    assert result["comparable"] is True
+    assert result["incompatibilities"] == []
     assert result["metrics"]["answer_correctness"]["verdict"] == "improved"
     assert result["metrics"]["hallucination_rate"]["verdict"] == "regressed"
     assert result["metrics"]["latency_ms"]["verdict"] == "improved"

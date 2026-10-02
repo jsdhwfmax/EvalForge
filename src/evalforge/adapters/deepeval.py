@@ -3,6 +3,7 @@
 import json
 import math
 from pathlib import Path
+from statistics import mean
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
 from evalforge.artifacts import (
@@ -179,7 +180,7 @@ def deepeval_artifact_from_export(
     directions = {target: direction for target, direction in mapping.values()}
     for target, values in scores.items():
         metrics[target] = MetricValue(
-            value=math.fsum(values) / len(rows), unit="ratio", direction=directions[target]
+            value=mean(values), unit="ratio", direction=directions[target]
         )
 
     metadata: Dict[str, Any] = {

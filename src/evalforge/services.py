@@ -1,9 +1,11 @@
+import math
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Iterable, List, Optional, Sequence
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from evalforge import metrics
@@ -15,11 +17,33 @@ from evalforge.models import (
     SecurityResult,
     TestCase,
 )
-from evalforge.providers import get_provider
+from evalforge.providers import ModelResponse, get_provider
 from evalforge.reproducibility import METRIC_VERSION, config_snapshot, dataset_fingerprint
 from evalforge.retrieval import Retriever, hashing_embedding
 from evalforge.schemas import DatasetImport, DocumentCreate, RagConfigCreate, TestCaseCreate
 from evalforge.security import CANARY, SECURITY_CASES, grade_security_response
+
+
+class ExperimentExecutionError(RuntimeError):
+    """An evaluation failed and its failed experiment was successfully saved."""
+
+    def __init__(self, experiment_id: str, message: str):
+        super().__init__(message)
+        self.experiment_id = experiment_id
+
+
+def _generation_cost(response: ModelResponse, config: RagConfig) -> float:
+    message = "Evaluation cost must be finite; token usage or configured prices overflowed"
+    try:
+        cost = (
+            response.input_tokens * config.input_cost_per_million
+            + response.output_tokens * config.output_cost_per_million
+        ) / 1_000_000
+    except OverflowError as exc:
+        raise ValueError(message) from exc
+    if not math.isfinite(cost):
+        raise ValueError(message)
+    return cost
 
 
 def create_document(db: Session, payload: DocumentCreate) -> Document:
@@ -96,10 +120,7 @@ def _run_security(
         evidence["usage"] = {
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
-            "cost_usd": (
-                response.input_tokens * config.input_cost_per_million
-                + response.output_tokens * config.output_cost_per_million
-            ) / 1_000_000,
+            "cost_usd": _generation_cost(response, config),
         }
         if "token_usage_source" in response.raw:
             evidence["usage"]["token_usage_source"] = response.raw["token_usage_source"]
@@ -130,6 +151,7 @@ def run_experiment(
     db.add(experiment)
     db.commit()
     db.refresh(experiment)
+    experiment_id = experiment.id
 
     try:
         documents = list(db.scalars(select(Document).order_by(Document.id)))
@@ -145,10 +167,7 @@ def run_experiment(
             response = provider.generate(test_case.question, context_documents, config)
             latency_ms = (time.perf_counter() - started) * 1000
             retrieved_ids = [document.id for document in context_documents]
-            cost = (
-                response.input_tokens * config.input_cost_per_million
-                + response.output_tokens * config.output_cost_per_million
-            ) / 1_000_000
+            cost = _generation_cost(response, config)
             row = EvaluationResult(
                 experiment_id=experiment.id,
                 test_case_id=test_case.id,
@@ -176,6 +195,8 @@ def run_experiment(
         db.flush()
         security_rows = _run_security(db, experiment, config, provider) if include_security else []
         summary = metrics.aggregate_results(result_rows, security_rows)
+        if not math.isfinite(summary["total_cost_usd"]):
+            raise ValueError("Total evaluation cost must be finite; accumulated costs overflowed")
         summary.update(
             {
                 "dataset_fingerprint": dataset_fingerprint(documents, test_cases),
@@ -190,12 +211,15 @@ def run_experiment(
         db.refresh(experiment)
     except Exception as exc:
         db.rollback()
-        persisted = db.get(Experiment, experiment.id)
+        persisted = db.get(Experiment, experiment_id)
         if persisted:
             persisted.status = "failed"
             persisted.error = str(exc)
             persisted.completed_at = datetime.now(timezone.utc)
             db.commit()
+            db.refresh(persisted)
+            if not isinstance(exc, SQLAlchemyError):
+                raise ExperimentExecutionError(experiment_id, str(exc)) from exc
         raise
     return experiment
 

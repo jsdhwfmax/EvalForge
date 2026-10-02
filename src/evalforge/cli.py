@@ -76,6 +76,7 @@ def import_promptfoo(
 ) -> None:
     """Convert a promptfoo JSON OutputFile (results schema v3)."""
 
+    _validate_report_paths([source], [output])
     try:
         artifact = load_promptfoo_export(
             source, source_revision=source_revision, dataset_fingerprint=dataset_fingerprint
@@ -98,6 +99,7 @@ def import_ragas(
     metric_version: Optional[str] = typer.Option(None, "--metric-version"),
 ) -> None:
     """Convert explicit Ragas to_pandas().to_json(orient='records') score columns."""
+    _validate_report_paths([source], [output])
     try:
         artifact = load_ragas_export(
             source, producer_version=producer_version, metrics=metrics,
@@ -120,6 +122,7 @@ def import_deepeval(
     metric_version: Optional[str] = typer.Option(None, "--metric-version"),
 ) -> None:
     """Convert a verified DeepEval EvaluationResult JSON export with built-in metrics."""
+    _validate_report_paths([source], [output])
     try:
         artifact = load_deepeval_export(
             source, producer_version=producer_version,
@@ -261,10 +264,17 @@ def gate(
 ) -> None:
     """Enforce a portable evaluation policy and return a CI-safe exit code."""
 
+    outputs = [json_output, junit_output, sarif_output, markdown_output]
     _validate_report_paths(
         [candidate, policy] + ([baseline] if baseline is not None else []),
-        [json_output, junit_output, sarif_output, markdown_output],
+        outputs,
     )
+    try:
+        for output in outputs:
+            if output is not None:
+                output.unlink(missing_ok=True)
+    except OSError as exc:
+        raise typer.BadParameter("Cannot remove previous report: %s" % exc) from exc
     try:
         candidate_artifact = load_artifact(candidate)
         baseline_artifact = load_artifact(baseline) if baseline else None
@@ -274,14 +284,18 @@ def gate(
 
     report = evaluate_gate(loaded_policy, candidate_artifact, baseline_artifact)
     typer.echo(render_terminal(report))
-    if json_output:
-        write_report(json_output, render_json(report))
-    if junit_output:
-        write_report(junit_output, render_junit(report))
-    if sarif_output:
-        write_report(sarif_output, render_sarif(report))
-    if markdown_output:
-        write_report(markdown_output, render_markdown(report))
+    reports = [
+        (path, render(report))
+        for path, render in (
+            (json_output, render_json),
+            (junit_output, render_junit),
+            (sarif_output, render_sarif),
+            (markdown_output, render_markdown),
+        )
+        if path is not None
+    ]
+    for path, content in reports:
+        write_report(path, content)
     if not report.passed:
         raise typer.Exit(code=1)
 

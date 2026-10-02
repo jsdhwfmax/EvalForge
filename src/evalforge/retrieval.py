@@ -52,7 +52,7 @@ def hashing_embedding(text: str, dimensions: int = 256) -> List[float]:
 
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
-    if not left or not right:
+    if len(left) == 0 or len(right) == 0:
         return 0.0
     return sum(a * b for a, b in zip(left, right))
 

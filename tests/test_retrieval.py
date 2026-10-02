@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from evalforge.retrieval import Retriever, cosine_similarity, hashing_embedding, tokenize
@@ -30,6 +31,28 @@ def test_embedding_is_deterministic_and_normalized():
     second = hashing_embedding("refund within thirty days")
     assert first == second
     assert cosine_similarity(first, second) == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("method", ["vector", "hybrid"])
+def test_retrieval_accepts_numpy_vectors_returned_by_supported_pgvector_versions(method):
+    docs = [
+        document("refund", "Refunds", "Request refunds within thirty days."),
+        document("password", "Passwords", "Reset links expire in twenty minutes."),
+    ]
+    query = "When does the password reset link expire?"
+    expected = Retriever(docs).search(query, top_k=2, method=method)
+    for item in docs:
+        item.embedding = np.asarray(item.embedding, dtype=np.float32)
+
+    actual = Retriever(docs).search(query, top_k=2, method=method)
+
+    assert [row.document.id for row in actual] == [row.document.id for row in expected]
+    assert [row.score for row in actual] == pytest.approx([row.score for row in expected])
+
+
+def test_cosine_similarity_handles_empty_numpy_vectors():
+    assert cosine_similarity(np.array([]), np.array([1.0])) == 0.0
+    assert cosine_similarity(np.array([1.0]), np.array([])) == 0.0
 
 
 @pytest.mark.parametrize("method", ["bm25", "vector", "hybrid"])

@@ -134,4 +134,8 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: evalforge:ci
+      - name: Smoke test containers with PostgreSQL and authenticated dashboard
+        timeout-minutes: 10
+        run: python scripts/docker_smoke.py

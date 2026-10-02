@@ -17,6 +17,8 @@ All notable changes are documented here. The project follows semantic versioning
   cannot display a stale release decision; inspect identically named experiments by ID.
 - Skip repeated document/test IDs within one dataset import instead of failing the entire
   transaction, consistently with repeated imports.
+- Accept the NumPy document vectors returned by supported older pgvector versions during
+  vector and hybrid retrieval.
 
 ### Performance
 

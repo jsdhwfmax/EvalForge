@@ -1,6 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: evalforge
       POSTGRES_USER: evalforge
@@ -15,25 +16,40 @@ services:
 
   api:
     build: .
+    restart: unless-stopped
     environment:
       EVALFORGE_DATABASE_URL: postgresql+psycopg://evalforge:evalforge@postgres:5432/evalforge
       EVALFORGE_CORS_ORIGINS: http://localhost:8501
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "evalforge seed && uvicorn evalforge.api:app --host 0.0.0.0 --port 8000"
+    command: sh -c "evalforge seed && exec uvicorn evalforge.api:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).close()"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   dashboard:
     build: .
+    restart: unless-stopped
     environment:
       EVALFORGE_API_BASE_URL: http://api:8000
     depends_on:
-      - api
-    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501
+      api:
+        condition: service_healthy
+    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=4).close()"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
 
 volumes:
   postgres_data:

@@ -6,6 +6,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from evalforge.config import get_settings
+from evalforge.dashboard_access import require_dashboard_access
 from evalforge.presentation import format_metric
 
 API_BASE = os.getenv("EVALFORGE_API_BASE_URL", "http://localhost:8000").rstrip("/")
@@ -13,6 +15,8 @@ if not API_BASE.startswith(("http://", "https://")):
     API_BASE = "http://" + API_BASE
 
 st.set_page_config(page_title="EvalForge", page_icon="⚒️", layout="wide")
+settings = get_settings()
+require_dashboard_access(settings)
 st.markdown(
     """
     <style>
@@ -33,7 +37,10 @@ st.markdown(
 
 def api(method, path, **kwargs):
     try:
-        response = httpx.request(method, API_BASE + path, timeout=120.0, **kwargs)
+        headers = dict(kwargs.pop("headers", {}))
+        if settings.access_key and settings.access_key.get_secret_value().strip():
+            headers["Authorization"] = "Bearer " + settings.access_key.get_secret_value()
+        response = httpx.request(method, API_BASE + path, headers=headers, timeout=120.0, **kwargs)
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as exc:
@@ -85,7 +92,7 @@ with overview_tab:
             ("Correctness", summary.get("answer_correctness"), ".1%"),
             ("Citation support", summary.get("citation_support"), ".1%"),
             ("Hallucination", summary.get("hallucination_rate"), ".1%"),
-            ("P50-ish latency", summary.get("latency_ms"), ".1f ms"),
+            ("Mean latency", summary.get("latency_ms"), ".1f ms"),
             ("Security pass", summary.get("security_pass_rate"), ".1%"),
         ]
         for column, (label, value, fmt) in zip(cols, metrics):
@@ -136,10 +143,14 @@ with overview_tab:
         st.plotly_chart(figure, use_container_width=True)
         st.dataframe(frame, width="stretch", hide_index=True)
 
-        selected_name = st.selectbox(
-            "Inspect test-level results", [item["name"] for item in experiments]
+        experiments_by_id = {item["id"]: item for item in experiments}
+        selected_id = st.selectbox(
+            "Inspect test-level results",
+            list(experiments_by_id),
+            format_func=lambda experiment_id: "%s · %s"
+            % (experiments_by_id[experiment_id]["name"], experiment_id[:8]),
         )
-        selected = next(item for item in experiments if item["name"] == selected_name)
+        selected = experiments_by_id[selected_id]
         fingerprint = selected.get("summary", {}).get("dataset_fingerprint")
         if fingerprint:
             st.caption(
@@ -237,28 +248,43 @@ with release_tab:
         st.info("Run an experiment before applying a release gate.")
     else:
         experiment_labels = {
-            "%s · %s" % (item["name"], item["id"][:8]): item["id"]
+            item["id"]: "%s · %s" % (item["name"], item["id"][:8])
             for item in experiments
             if item["status"] == "completed"
         }
         if len(experiment_labels) >= 2:
-            labels = list(experiment_labels)
+            experiment_ids = list(experiment_labels)
             compare_left, compare_right = st.columns(2)
-            baseline_label = compare_left.selectbox(
-                "Baseline experiment", labels, index=min(1, len(labels) - 1)
+            baseline_id = compare_left.selectbox(
+                "Baseline experiment",
+                experiment_ids,
+                index=1,
+                format_func=experiment_labels.__getitem__,
             )
-            candidate_label = compare_right.selectbox("Candidate experiment", labels, index=0)
+            candidate_id = compare_right.selectbox(
+                "Candidate experiment",
+                experiment_ids,
+                index=0,
+                format_func=experiment_labels.__getitem__,
+            )
+            comparison_request = {
+                "baseline_id": baseline_id,
+                "candidate_id": candidate_id,
+            }
+            if st.session_state.get("comparison_request") != comparison_request:
+                st.session_state.pop("comparison_report", None)
+                st.session_state.pop("comparison_request", None)
             if st.button("Compare baseline and candidate"):
+                st.session_state.pop("comparison_report", None)
+                st.session_state.pop("comparison_request", None)
                 comparison = api(
                     "GET",
                     "/api/v1/experiments/compare",
-                    params={
-                        "baseline_id": experiment_labels[baseline_label],
-                        "candidate_id": experiment_labels[candidate_label],
-                    },
+                    params=comparison_request,
                 )
                 if comparison:
                     st.session_state["comparison_report"] = comparison
+                    st.session_state["comparison_request"] = comparison_request
             comparison = st.session_state.get("comparison_report")
             if comparison:
                 delta_a, delta_b, delta_c = st.columns(3)
@@ -287,7 +313,11 @@ with release_tab:
         if experiment_labels:
             st.divider()
             st.markdown("#### Release thresholds")
-            gate_experiment_label = st.selectbox("Experiment to gate", list(experiment_labels))
+            gate_experiment_id = st.selectbox(
+                "Experiment to gate",
+                list(experiment_labels),
+                format_func=experiment_labels.__getitem__,
+            )
             gate_a, gate_b, gate_c = st.columns(3)
             min_recall = gate_a.number_input("Minimum Recall@K", 0.0, 1.0, 0.8, 0.05)
             min_correctness = gate_b.number_input("Minimum correctness", 0.0, 1.0, 0.5, 0.05)
@@ -310,22 +340,33 @@ with release_tab:
                 step=0.01,
                 disabled=not enforce_cost,
             )
+            gate_thresholds = {
+                "retrieval_recall_at_k": min_recall,
+                "answer_correctness": min_correctness,
+                "citation_support": min_citations,
+                "hallucination_rate": max_hallucination,
+                "security_pass_rate": min_security,
+                "latency_ms": max_latency,
+                "total_cost_usd": max_cost if enforce_cost else None,
+            }
+            gate_request = {
+                "experiment_id": gate_experiment_id,
+                "thresholds": gate_thresholds,
+            }
+            if st.session_state.get("gate_request") != gate_request:
+                st.session_state.pop("gate_result", None)
+                st.session_state.pop("gate_request", None)
             if st.button("Evaluate release gate", type="primary"):
+                st.session_state.pop("gate_result", None)
+                st.session_state.pop("gate_request", None)
                 gate_result = api(
                     "POST",
-                    "/api/v1/experiments/%s/gate" % experiment_labels[gate_experiment_label],
-                    json={
-                        "retrieval_recall_at_k": min_recall,
-                        "answer_correctness": min_correctness,
-                        "citation_support": min_citations,
-                        "hallucination_rate": max_hallucination,
-                        "security_pass_rate": min_security,
-                        "latency_ms": max_latency,
-                        "total_cost_usd": max_cost if enforce_cost else None,
-                    },
+                    "/api/v1/experiments/%s/gate" % gate_experiment_id,
+                    json=gate_thresholds,
                 )
                 if gate_result:
                     st.session_state["gate_result"] = gate_result
+                    st.session_state["gate_request"] = gate_request
             gate_result = st.session_state.get("gate_result")
             if gate_result:
                 if gate_result["passed"]:

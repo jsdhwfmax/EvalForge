@@ -89,7 +89,14 @@ erDiagram
 
 - Provider API keys are referenced by environment variable name and never stored.
 - Imported documents are untrusted content and may contain indirect prompt injection.
-- The MVP API has no authentication. Put it behind an API gateway or identity-aware proxy.
+- Set `EVALFORGE_ENVIRONMENT=production` and a shared `EVALFORGE_ACCESS_KEY` on both services.
+  The API requires Bearer authentication for data routes, and the dashboard requires sign-in
+  before fetching any data. Production refuses to serve data without a configured key.
+  Health checks and API documentation remain public. See the [deployment guide](DEPLOYMENT.md).
+- A shared access key grants maintainer access to all data and provider configuration; it is
+  not tenant isolation. Use an identity-aware proxy for individual identities and do not share
+  maintainer access with untrusted users. Maintainers control provider destinations and which
+  environment credential is sent to each provider.
 - Security results are diagnostic signals, not a guarantee that a model is safe.
 - Artifact and policy files are untrusted inputs. Strict schemas reject unknown canonical fields, and report writers never execute values from those files.
 - Dataset access, deletion, and retention must be handled by the deploying organization.

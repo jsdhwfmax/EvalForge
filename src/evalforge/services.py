@@ -53,10 +53,14 @@ def import_dataset(db: Session, payload: DatasetImport):
     documents_created = 0
     test_cases_created = 0
     skipped = 0
+    document_ids = set()
+    test_case_ids = set()
     for document_item in payload.documents:
-        if document_item.id and db.get(Document, document_item.id):
-            skipped += 1
-            continue
+        if document_item.id is not None:
+            if document_item.id in document_ids or db.get(Document, document_item.id):
+                skipped += 1
+                continue
+            document_ids.add(document_item.id)
         values = document_item.model_dump(exclude={"metadata"}, exclude_none=True)
         values["metadata_json"] = document_item.metadata
         values["embedding"] = hashing_embedding(document_item.title + " " + document_item.content)
@@ -64,9 +68,11 @@ def import_dataset(db: Session, payload: DatasetImport):
         documents_created += 1
     db.flush()
     for test_item in payload.test_cases:
-        if test_item.id and db.get(TestCase, test_item.id):
-            skipped += 1
-            continue
+        if test_item.id is not None:
+            if test_item.id in test_case_ids or db.get(TestCase, test_item.id):
+                skipped += 1
+                continue
+            test_case_ids.add(test_item.id)
         db.add(TestCase(**test_item.model_dump(exclude_none=True)))
         test_cases_created += 1
     db.commit()

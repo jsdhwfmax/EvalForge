@@ -10,6 +10,18 @@ Security fixes are made for the latest released minor version during the pre-1.0
 
 ## Deployment warning
 
-The MVP does not implement user authentication or tenant isolation. Do not expose it to the public internet with confidential datasets unless it is protected by an authenticated API gateway or identity-aware proxy. Store provider keys only in environment-secret systems.
+Production deployments require `EVALFORGE_ENVIRONMENT=production` and the same securely
+generated `EVALFORGE_ACCESS_KEY` on the API and dashboard. Data routes require Bearer
+authentication; the dashboard requires sign-in before it fetches or displays data. Health
+checks and API documentation remain public. Local development without an access key remains
+unauthenticated and should bind only to loopback.
+
+The shared key grants full maintainer access, including provider configuration and experiment
+execution. It does not provide individual user identities or tenant isolation. Use an
+authenticated gateway or identity-aware proxy when those are needed, terminate public traffic
+with HTTPS, and share maintainer access only with trusted operators. A maintainer can configure
+provider destinations and the environment variable used for provider credentials. Store keys
+only in environment-secret systems; rotate the shared key on both services and restart them to
+invalidate existing dashboard sessions. See [deployment instructions](docs/DEPLOYMENT.md).
 
 The adversarial evaluation suite measures model behavior; it is not itself an application security boundary.

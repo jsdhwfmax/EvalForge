@@ -408,9 +408,13 @@ Maintainers should follow the [release checklist](docs/RELEASE_CHECKLIST.md) so 
 - `docker-compose.yml` provides API + Dashboard + PostgreSQL/pgvector.
 - `render.yaml` is a starting blueprint for two web services and managed Postgres.
 - Secrets belong in the deployment provider's environment settings; never commit `.env`.
-- Protect the API with an identity-aware proxy or API gateway before exposing private datasets.
+- Production requires a shared `EVALFORGE_ACCESS_KEY` for authenticated API access and dashboard
+  sign-in. The Render blueprint generates and shares this key across both services.
+- Shared-key access is for trusted maintainers; add an identity-aware proxy for individual
+  identities or organization access policies.
 
-See [architecture and production notes](docs/ARCHITECTURE.md).
+See the [deployment guide](docs/DEPLOYMENT.md) for startup, verification, secrets, and rollback,
+and [architecture and production notes](docs/ARCHITECTURE.md).
 
 ## Ecosystem role
 

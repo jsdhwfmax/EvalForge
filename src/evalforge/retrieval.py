@@ -52,7 +52,7 @@ def hashing_embedding(text: str, dimensions: int = 256) -> List[float]:
 
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
-    if not left or not right:
+    if len(left) == 0 or len(right) == 0:
         return 0.0
     return sum(a * b for a, b in zip(left, right))
 
@@ -66,34 +66,39 @@ class RetrievedDocument:
 class Retriever:
     def __init__(self, documents: Iterable[Any]):
         self.documents = list(documents)
-        self._tokens = [
-            tokenize(document.title + " " + document.content) for document in self.documents
+        self._term_counts = [
+            Counter(tokenize(document.title + " " + document.content))
+            for document in self.documents
         ]
         self._doc_freq: Counter = Counter()
-        for tokens in self._tokens:
-            self._doc_freq.update(set(tokens))
-        self._avg_length = (
-            sum(len(tokens) for tokens in self._tokens) / len(self._tokens) if self._tokens else 1.0
-        )
+        for counts in self._term_counts:
+            self._doc_freq.update(counts.keys())
+        lengths = [sum(counts.values()) for counts in self._term_counts]
+        self._avg_length = sum(lengths) / len(lengths) if lengths else 1.0
+        k1, b = 1.5, 0.75
+        # An all-empty corpus has no matching terms, so its normalization is never used.
+        self._length_normalizations = [
+            k1 * (1 - b + b * length / self._avg_length) if self._avg_length else 0.0
+            for length in lengths
+        ]
+        total_docs = len(self.documents)
+        self._idf = {
+            token: math.log(1 + (total_docs - frequency + 0.5) / (frequency + 0.5))
+            for token, frequency in self._doc_freq.items()
+        }
 
     def _bm25_scores(self, query: str) -> List[float]:
         query_tokens = tokenize(query)
-        total_docs = len(self.documents)
         scores = []
-        k1, b = 1.5, 0.75
-        for tokens in self._tokens:
-            counts = Counter(tokens)
+        k1 = 1.5
+        for counts, normalization in zip(self._term_counts, self._length_normalizations):
             score = 0.0
             for token in query_tokens:
                 frequency = counts[token]
                 if not frequency:
                     continue
-                document_frequency = self._doc_freq[token]
-                idf = math.log(
-                    1 + (total_docs - document_frequency + 0.5) / (document_frequency + 0.5)
-                )
-                denominator = frequency + k1 * (1 - b + b * len(tokens) / self._avg_length)
-                score += idf * (frequency * (k1 + 1)) / denominator
+                denominator = frequency + normalization
+                score += self._idf[token] * (frequency * (k1 + 1)) / denominator
             scores.append(score)
         return scores
 

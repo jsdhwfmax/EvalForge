@@ -2,6 +2,29 @@
 
 All notable changes are documented here. The project follows semantic versioning while the artifact and policy formats carry independent schema versions.
 
+## [Unreleased]
+
+### Added
+
+- Shared maintainer-key authentication for API data routes and dashboard sign-in, with
+  production startup refusing a missing key and local offline development unchanged.
+- A production deployment guide, non-root container runtime, and shared Render secret
+  configuration for the API and dashboard.
+
+### Fixed
+
+- Bind dashboard gate and comparison results to their exact inputs so changed selections
+  cannot display a stale release decision; inspect identically named experiments by ID.
+- Skip repeated document/test IDs within one dataset import instead of failing the entire
+  transaction, consistently with repeated imports.
+- Accept the NumPy document vectors returned by supported older pgvector versions during
+  vector and hybrid retrieval.
+
+### Performance
+
+- Reuse corpus word counts and BM25 constants across questions without changing retrieval
+  scores or deterministic ranking.
+
 ## [0.5.0] - 2026-09-22
 
 ### Added

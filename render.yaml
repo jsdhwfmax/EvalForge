@@ -1,17 +1,28 @@
+envVarGroups:
+  - name: evalforge-shared
+    envVars:
+      - key: EVALFORGE_ENVIRONMENT
+        value: production
+      - key: EVALFORGE_ACCESS_KEY
+        generateValue: true
+
 databases:
   - name: evalforge-db
     databaseName: evalforge
     user: evalforge
     plan: basic-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: []
 
 services:
   - type: web
     name: evalforge-api
     runtime: docker
     plan: starter
-    dockerCommand: sh -c "evalforge seed && uvicorn evalforge.api:app --host 0.0.0.0 --port $PORT"
+    dockerCommand: sh -c 'exec uvicorn evalforge.api:app --host 0.0.0.0 --port "${PORT:-8000}"'
     healthCheckPath: /health
     envVars:
+      - fromGroup: evalforge-shared
       - key: EVALFORGE_DATABASE_URL
         fromDatabase:
           name: evalforge-db
@@ -21,8 +32,10 @@ services:
     name: evalforge-dashboard
     runtime: docker
     plan: starter
-    dockerCommand: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=$PORT
+    dockerCommand: sh -c 'exec streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port="${PORT:-8501}" --server.headless=true'
+    healthCheckPath: /_stcore/health
     envVars:
+      - fromGroup: evalforge-shared
       - key: EVALFORGE_API_BASE_URL
         fromService:
           type: web

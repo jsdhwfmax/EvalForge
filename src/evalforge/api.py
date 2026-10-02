@@ -1,13 +1,14 @@
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from evalforge import __version__
+from evalforge.access import require_access, validate_access_configuration
 from evalforge.config import get_settings
 from evalforge.database import get_db, init_db
 from evalforge.gates import compare_experiment_summaries, evaluate_quality_gate
@@ -40,6 +41,7 @@ from evalforge.services import (
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    validate_access_configuration(get_settings())
     init_db()
     yield
 
@@ -58,6 +60,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+api_router = APIRouter(dependencies=[Depends(require_access)])
 
 
 @app.get("/health", tags=["system"])
@@ -67,7 +70,9 @@ def health(db: Session = Depends(get_db)):
     return {"status": "ok", "version": __version__, "database": database_name}
 
 
-@app.post("/api/v1/documents", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
+@api_router.post(
+    "/api/v1/documents", response_model=DocumentRead, status_code=status.HTTP_201_CREATED
+)
 def add_document(payload: DocumentCreate, db: Session = Depends(get_db)):
     try:
         return create_document(db, payload)
@@ -76,12 +81,14 @@ def add_document(payload: DocumentCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Document ID already exists") from exc
 
 
-@app.get("/api/v1/documents", response_model=list[DocumentRead])
+@api_router.get("/api/v1/documents", response_model=list[DocumentRead])
 def list_documents(db: Session = Depends(get_db)):
     return list(db.scalars(select(Document).order_by(Document.created_at)))
 
 
-@app.post("/api/v1/test-cases", response_model=TestCaseRead, status_code=status.HTTP_201_CREATED)
+@api_router.post(
+    "/api/v1/test-cases", response_model=TestCaseRead, status_code=status.HTTP_201_CREATED
+)
 def add_test_case(payload: TestCaseCreate, db: Session = Depends(get_db)):
     try:
         return create_test_case(db, payload)
@@ -90,12 +97,14 @@ def add_test_case(payload: TestCaseCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Test case ID already exists") from exc
 
 
-@app.get("/api/v1/test-cases", response_model=list[TestCaseRead])
+@api_router.get("/api/v1/test-cases", response_model=list[TestCaseRead])
 def list_test_cases(db: Session = Depends(get_db)):
     return list(db.scalars(select(TestCase).order_by(TestCase.created_at)))
 
 
-@app.post("/api/v1/configs", response_model=RagConfigRead, status_code=status.HTTP_201_CREATED)
+@api_router.post(
+    "/api/v1/configs", response_model=RagConfigRead, status_code=status.HTTP_201_CREATED
+)
 def add_config(payload: RagConfigCreate, db: Session = Depends(get_db)):
     try:
         return create_config(db, payload)
@@ -106,12 +115,12 @@ def add_config(payload: RagConfigCreate, db: Session = Depends(get_db)):
         ) from exc
 
 
-@app.get("/api/v1/configs", response_model=list[RagConfigRead])
+@api_router.get("/api/v1/configs", response_model=list[RagConfigRead])
 def list_configs(db: Session = Depends(get_db)):
     return list(db.scalars(select(RagConfig).order_by(RagConfig.created_at)))
 
 
-@app.post("/api/v1/datasets/import", response_model=ImportSummary)
+@api_router.post("/api/v1/datasets/import", response_model=ImportSummary)
 def add_dataset(payload: DatasetImport, db: Session = Depends(get_db)):
     created_docs, created_tests, skipped = import_dataset(db, payload)
     return ImportSummary(
@@ -119,7 +128,7 @@ def add_dataset(payload: DatasetImport, db: Session = Depends(get_db)):
     )
 
 
-@app.post("/api/v1/datasets/upload", response_model=ImportSummary)
+@api_router.post("/api/v1/datasets/upload", response_model=ImportSummary)
 async def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename or not file.filename.lower().endswith(".json"):
         raise HTTPException(status_code=415, detail="Upload a JSON dataset file")
@@ -143,7 +152,7 @@ def _load_experiment(db: Session, experiment_id: str):
     return db.scalar(query)
 
 
-@app.post("/api/v1/experiments/run", response_model=ExperimentBatchRead)
+@api_router.post("/api/v1/experiments/run", response_model=ExperimentBatchRead)
 def run_batch(payload: ExperimentRun, db: Session = Depends(get_db)):
     try:
         test_cases = select_test_cases(db, payload.test_case_ids)
@@ -173,7 +182,7 @@ def run_batch(payload: ExperimentRun, db: Session = Depends(get_db)):
     return ExperimentBatchRead(experiments=experiments)
 
 
-@app.get("/api/v1/experiments", response_model=list[ExperimentRead])
+@api_router.get("/api/v1/experiments", response_model=list[ExperimentRead])
 def list_experiments(db: Session = Depends(get_db)):
     query = (
         select(Experiment)
@@ -183,7 +192,7 @@ def list_experiments(db: Session = Depends(get_db)):
     return list(db.scalars(query))
 
 
-@app.get("/api/v1/experiments/compare", response_model=ExperimentComparisonRead)
+@api_router.get("/api/v1/experiments/compare", response_model=ExperimentComparisonRead)
 def compare_experiments(baseline_id: str, candidate_id: str, db: Session = Depends(get_db)):
     baseline = _load_experiment(db, baseline_id)
     candidate = _load_experiment(db, candidate_id)
@@ -201,7 +210,7 @@ def compare_experiments(baseline_id: str, candidate_id: str, db: Session = Depen
     )
 
 
-@app.get("/api/v1/experiments/{experiment_id}", response_model=ExperimentRead)
+@api_router.get("/api/v1/experiments/{experiment_id}", response_model=ExperimentRead)
 def get_experiment(experiment_id: str, db: Session = Depends(get_db)):
     experiment = _load_experiment(db, experiment_id)
     if not experiment:
@@ -209,7 +218,7 @@ def get_experiment(experiment_id: str, db: Session = Depends(get_db)):
     return experiment
 
 
-@app.post("/api/v1/experiments/{experiment_id}/gate", response_model=QualityGateRead)
+@api_router.post("/api/v1/experiments/{experiment_id}/gate", response_model=QualityGateRead)
 def apply_quality_gate(
     experiment_id: str, payload: QualityGateRequest, db: Session = Depends(get_db)
 ):
@@ -220,3 +229,6 @@ def apply_quality_gate(
         raise HTTPException(status_code=409, detail="Only completed experiments can be gated")
     result = evaluate_quality_gate(experiment.summary, payload.model_dump())
     return {"experiment_id": experiment.id, **result}
+
+
+app.include_router(api_router)

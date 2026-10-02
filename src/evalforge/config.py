@@ -1,12 +1,15 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "EvalForge"
     environment: str = "development"
+    access_key: Optional[SecretStr] = None
     database_url: str = "sqlite:///./evalforge.db"
     api_base_url: str = "http://localhost:8000"
     cors_origins: str = "http://localhost:8501,http://localhost:3000"

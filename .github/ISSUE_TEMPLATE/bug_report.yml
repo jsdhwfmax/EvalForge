@@ -3,6 +3,13 @@ description: Report a reproducible EvalForge problem
 title: "[Bug]: "
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: >-
+        Use synthetic or anonymized examples. Do not share API keys, access keys,
+        production .env files, confidential prompts, or customer data.
+        For vulnerabilities, follow the
+        [security policy](https://github.com/jsdhwfmax/EvalForge/security/policy).
   - type: textarea
     attributes:
       label: What happened?
@@ -18,5 +25,11 @@ body:
   - type: input
     attributes:
       label: EvalForge version
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Python version and operating system
+      placeholder: Python 3.12, Ubuntu 24.04
     validations:
       required: true

@@ -47,6 +47,12 @@ The API's `/health` checks its database connection. The dashboard's
   experiment, and inspect its report.
 - Restart the API service and confirm the dataset and experiment still exist.
 
+The Blueprint starts each container with `python -m evalforge.server api` or
+`python -m evalforge.server dashboard`. This launcher reads Render's `PORT`
+directly and replaces itself with the server process, without shell quoting.
+When `PORT` is unset or empty, the API uses 8000 and the dashboard uses 8501.
+Other values must be integer ports from 1 through 65535.
+
 Database data is stored in managed PostgreSQL, not in service containers. Before
 upgrades, arrange backups and verify restoration using the provider's supported
 tools. Application rollback uses the previous service deployment; table creation

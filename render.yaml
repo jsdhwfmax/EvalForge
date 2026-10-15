@@ -19,7 +19,7 @@ services:
     name: evalforge-api
     runtime: docker
     plan: starter
-    dockerCommand: sh -c 'exec uvicorn evalforge.api:app --host 0.0.0.0 --port "${PORT:-8000}"'
+    dockerCommand: python -m evalforge.server api
     healthCheckPath: /health
     envVars:
       - fromGroup: evalforge-shared
@@ -32,7 +32,7 @@ services:
     name: evalforge-dashboard
     runtime: docker
     plan: starter
-    dockerCommand: sh -c 'exec streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port="${PORT:-8501}" --server.headless=true'
+    dockerCommand: python -m evalforge.server dashboard
     healthCheckPath: /_stcore/health
     envVars:
       - fromGroup: evalforge-shared

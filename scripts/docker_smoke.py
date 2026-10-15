@@ -7,6 +7,7 @@ import time
 import uuid
 
 IMAGE = "evalforge:ci"
+API_PORT, DASHBOARD_PORT = 18080, 18501
 PREFIX = "evalforge-smoke-" + uuid.uuid4().hex[:12]
 PASSWORD, ACCESS_KEY = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
 ENV = {
@@ -17,7 +18,7 @@ ENV = {
     "EVALFORGE_DATABASE_URL": (
         "postgresql+psycopg://evalforge:%s@postgres:5432/evalforge" % PASSWORD
     ),
-    "EVALFORGE_API_BASE_URL": "http://api:8000",
+    "EVALFORGE_API_BASE_URL": "http://api:%s" % API_PORT,
 }
 CONTAINERS = []
 
@@ -65,9 +66,10 @@ def main():
         wait_for(postgres, "pg_isready", "-h", "127.0.0.1", "-U", "evalforge", "-d", "evalforge")
         api = start(
             "api", "--network-alias", "api", "--env", "EVALFORGE_DATABASE_URL",
-            "--env", "EVALFORGE_ENVIRONMENT", "--env", "EVALFORGE_ACCESS_KEY", IMAGE,
+            "--env", "EVALFORGE_ENVIRONMENT", "--env", "EVALFORGE_ACCESS_KEY",
+            "--env", "PORT=%s" % API_PORT, IMAGE, "python", "-m", "evalforge.server", "api",
         )
-        wait_http(api, "http://127.0.0.1:8000/health")
+        wait_http(api, "http://127.0.0.1:%s/health" % API_PORT)
         docker("exec", api, "python", "-c", "import os; assert os.getuid() != 0; "
                "assert os.access('/data', os.W_OK); "
                "assert os.access('/app/dashboard/app.py', os.R_OK)")
@@ -78,11 +80,11 @@ def main():
         assert vector.stdout.strip(), "The native pgvector extension was not created"
         print("Non-root image, PostgreSQL/pgvector seed, and offline quality gate passed.")
         docker("restart", api)
-        wait_http(api, "http://127.0.0.1:8000/health")
+        wait_http(api, "http://127.0.0.1:%s/health" % API_PORT)
         docker("exec", "-i", api, "python", "-", source='''
 import os
 import httpx
-with httpx.Client(base_url="http://127.0.0.1:8000", timeout=10) as client:
+with httpx.Client(base_url="http://127.0.0.1:" + os.environ["PORT"], timeout=10) as client:
     assert client.get("/health").json()["database"] == "postgresql"
     assert client.get("/api/v1/documents").status_code == 401
     bad = client.get("/api/v1/documents", headers={"Authorization": "Bearer wrong"})
@@ -96,10 +98,10 @@ with httpx.Client(base_url="http://127.0.0.1:8000", timeout=10) as client:
         print("Live API auth and PostgreSQL data persistence after API restart passed.")
         dashboard = start(
             "dashboard", "--env", "EVALFORGE_ENVIRONMENT", "--env", "EVALFORGE_ACCESS_KEY",
-            "--env", "EVALFORGE_API_BASE_URL", IMAGE, "streamlit", "run", "dashboard/app.py",
-            "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true",
+            "--env", "EVALFORGE_API_BASE_URL", "--env", "PORT=%s" % DASHBOARD_PORT,
+            IMAGE, "python", "-m", "evalforge.server", "dashboard",
         )
-        wait_http(dashboard, "http://127.0.0.1:8501/_stcore/health")
+        wait_http(dashboard, "http://127.0.0.1:%s/_stcore/health" % DASHBOARD_PORT)
         docker("exec", "-i", dashboard, "python", "-", source='''
 import os
 from streamlit.testing.v1 import AppTest

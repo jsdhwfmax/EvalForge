@@ -13,6 +13,10 @@ EvalForge turns AI evaluation results into reviewable release evidence. Import p
 
 > Status: v0.6.0 alpha. The gate and offline evaluator are usable today. Integrations have explicit, tested format boundaries; the project is still seeking independently verified downstream adoption.
 
+**Contributions welcome:** follow the [first PR guide](CONTRIBUTING.md#your-first-pull-request)
+or browse [good first issues](https://github.com/jsdhwfmax/EvalForge/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).
+You can contribute through a fork without repository write access.
+
 ## Why EvalForge?
 
 AI projects can calculate useful metrics and still lack a shared answer to a maintainer's release question: **what changed, which limits were enforced, and where is the machine-readable evidence?** Evaluation frameworks use different result shapes, while CI platforms understand established formats such as JUnit and SARIF.

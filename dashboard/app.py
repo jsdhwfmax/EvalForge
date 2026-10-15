@@ -22,6 +22,13 @@ st.markdown(
     <style>
     .stApp {background: #f7f8fa;}
     [data-testid="stSidebar"] {background: #101828; color: white;}
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+      background: #f9fafb; border-color: #d0d5dd; color: #101828;}
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {color: #101828;}
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+      background: #e4e7ec; border-color: #98a2b3;}
+    [data-testid="stSidebar"] [data-testid="stAlert"],
+    [data-testid="stSidebar"] [data-testid="stAlert"] p {color: #f2f4f7;}
     [data-testid="stMetric"] {background: white; border: 1px solid #e4e7ec;
       border-radius: 12px; padding: 14px 18px; box-shadow: 0 2px 8px rgba(16,24,40,.04);}
     .hero {padding: 18px 0 8px;}
@@ -86,7 +93,6 @@ with overview_tab:
     else:
         latest = experiments[0]
         summary = latest.get("summary", {})
-        cols = st.columns(6)
         metrics = [
             ("Recall@K", summary.get("retrieval_recall_at_k"), ".1%"),
             ("Correctness", summary.get("answer_correctness"), ".1%"),
@@ -95,8 +101,9 @@ with overview_tab:
             ("Mean latency", summary.get("latency_ms"), ".1f ms"),
             ("Security pass", summary.get("security_pass_rate"), ".1%"),
         ]
-        for column, (label, value, fmt) in zip(cols, metrics):
-            column.metric(label, format_metric(value, fmt))
+        for start in range(0, len(metrics), 3):
+            for column, (label, value, fmt) in zip(st.columns(3), metrics[start:start + 3]):
+                column.metric(label, format_metric(value, fmt))
 
         rows = []
         config_names = {item["id"]: item["name"] for item in configs}
